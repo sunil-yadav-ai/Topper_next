@@ -1,0 +1,24 @@
+{
+  "name": "student-resource-sharing-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "test-email": "node src/scripts/testEmail.js",
+    "create-admin": "node src/scripts/createAdmin.js",
+    "retry-failed-note-ocr": "node src/scripts/retry-failed-note-ocr.js"
+  },
+  "dependencies": {
+    "@google/genai": "^2.32.0",
+    "@napi-rs/canvas": "^1.1.0",
+    "bcryptjs": "^3.0.3",
+    "cloudinary": "^2.11.0",
+    "dotenv": "^16.6.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^8.18.1",
+    "nodemailer": "^10.3.1",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.5.438"
+  }
+}
