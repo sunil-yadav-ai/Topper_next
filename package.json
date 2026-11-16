@@ -1,6 +1,9 @@
 {
   "name": "student-academic-resource-sharing-platform",
   "private": true,
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
   "workspaces": [
     "frontend",
     "backend"

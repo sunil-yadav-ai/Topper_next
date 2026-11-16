@@ -92,7 +92,11 @@ MongoDB and the OCR worker inside the Next.js runtime.
 - Deploy the Next.js application as a Node.js server so its API route handlers
   can use MongoDB and the existing backend services. `NEXT_PUBLIC_API_BASE_URL`
   defaults to `/api` and should only be changed when intentionally using a
-  separate API origin.
+  separate API origin. Set the deployment root to the repository root (not
+  `backend` or `frontend`): the npm workspace lockfile is at the repository
+  root, and the Next.js app imports backend workspace code. Use `npm ci` to
+  install, `npm run build` to build, and `npm start` to start the app. Use
+  Node.js 20.19+ or 22.12+.
 - Public resource pages read only published records with an explicit
   `visibility: "public"` value. Private, unpublished, unlisted, or legacy
   records without explicit public visibility are excluded. Pages expose
