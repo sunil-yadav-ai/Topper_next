@@ -7,6 +7,7 @@ import { useGSAP } from "@gsap/react";
 import {
   BookOpenText,
   Compass,
+  FileText,
   Sparkles,
   LayoutDashboard,
   LibraryBig,
@@ -137,6 +138,7 @@ export function AuthenticatedSiteHeader({ user }) {
             <>
               <ActiveLink className="ed-nav-link" href="/search"><Compass aria-hidden="true" />Explore</ActiveLink>
               <ActiveLink className="ed-nav-link" href="/uploads"><Upload aria-hidden="true" />Upload</ActiveLink>
+              <ActiveLink className="ed-nav-link" href="/notes-to-pdf"><FileText aria-hidden="true" />Notes to PDF</ActiveLink>
               <ActiveLink className="ed-nav-link" href="/practice"><Sparkles aria-hidden="true" />AI Practice</ActiveLink>
               <ActiveLink className="ed-nav-link" href="/syllabus"><BookOpenText aria-hidden="true" />Syllabus analyzer</ActiveLink>
               {user.username && (

@@ -22,6 +22,7 @@ import { decryptOcrResult } from "../services/note-ocr.service.js";
 import { decryptJson } from "../services/encrypted-json.service.js";
 import { createNotification } from "../services/notification.service.js";
 import { sendResourceUploadEmail } from "../services/email-notification.service.js";
+import { assertNoteSubjectRelevance } from "../services/note-relevance.service.js";
 
 function requiredText(body, field, maxLength) {
   const value = typeof body[field] === "string" ? body[field].trim() : "";
@@ -143,6 +144,11 @@ export async function createNote(request, response) {
     topic: optionalText(request.body, "topic", 160),
   };
 
+  const relevancePercentage = await assertNoteSubjectRelevance({
+    fields,
+    file: request.file,
+    userId: request.user._id,
+  });
   const note = await createNoteSubmission({
     fields,
     file: request.file,
@@ -153,7 +159,7 @@ export async function createNote(request, response) {
 
   response.status(201).json({
     status: "success",
-    message: "Your note is now public in Explore. OCR and AI verification are continuing in the background.",
+    message: `Your note passed the ${relevancePercentage}% subject relevance check and is now public in Explore. OCR and AI verification are continuing in the background.`,
     note: serializeNote(note, request),
   });
 }
@@ -278,19 +284,25 @@ export async function resubmitCorrectedNote(request, response) {
   }
 
   const fileInfo = validateNoteFile(request.file);
+  const fields = {
+    title: parent.title,
+    description: parent.description,
+    department: parent.department,
+    batch: parent.batch,
+    semester: parent.semester,
+    subject: parent.subject,
+    university: parent.university ?? "",
+    marks: parent.marks,
+    unit: parent.unit,
+    topic: parent.topic,
+  };
+  const relevancePercentage = await assertNoteSubjectRelevance({
+    fields,
+    file: request.file,
+    userId: request.user._id,
+  });
   const note = await createNoteSubmission({
-    fields: {
-      title: parent.title,
-      description: parent.description,
-      department: parent.department,
-      batch: parent.batch,
-      semester: parent.semester,
-      subject: parent.subject,
-      university: parent.university ?? "",
-      marks: parent.marks,
-      unit: parent.unit,
-      topic: parent.topic,
-    },
+    fields,
     file: request.file,
     format: fileInfo.format,
     uploadedBy: request.user._id,
@@ -302,7 +314,7 @@ export async function resubmitCorrectedNote(request, response) {
 
   response.status(201).json({
     status: "success",
-    message: "Your corrected version was uploaded and queued for OCR and AI verification.",
+    message: `Your corrected version passed the ${relevancePercentage}% subject relevance check and was uploaded for OCR and AI verification.`,
     note: serializeNote(note, request),
   });
 }

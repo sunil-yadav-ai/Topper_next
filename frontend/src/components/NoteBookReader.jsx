@@ -210,7 +210,8 @@ export default function NoteBookReader({ resourceId }) {
   const rootRef = useRef(null);
   const bookRef = useRef(null);
   const stageRef = useRef(null);
-  const pageFlipAudioRef = useRef(null);
+  const pageFlipAudioContextRef = useRef(null);
+  const pageFlipAudioBufferRef = useRef(null);
   const recordOpenRef = useRef(false);
   const activityOpenIdRef = useRef("");
   const { user } = useAuth();
@@ -227,6 +228,7 @@ export default function NoteBookReader({ resourceId }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activityError, setActivityError] = useState("");
+  const [soundError, setSoundError] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
@@ -247,13 +249,36 @@ export default function NoteBookReader({ resourceId }) {
   }, [resourceId, user?.role]);
 
   useEffect(() => {
-    const audio = new Audio("/sounds/page-turn.mp3");
-    audio.preload = "auto";
-    audio.volume = 0.38;
-    pageFlipAudioRef.current = audio;
+    const AudioContextConstructor = window.AudioContext;
+    if (!AudioContextConstructor) {
+      setSoundError("Page-turn audio is not supported by this browser.");
+      setSoundEnabled(false);
+      return undefined;
+    }
+
+    const context = new AudioContextConstructor();
+    let active = true;
+    pageFlipAudioContextRef.current = context;
+    fetch("/sounds/page-turn.mp3")
+      .then((response) => {
+        if (!response.ok) throw new Error(`Sound request failed (${response.status}).`);
+        return response.arrayBuffer();
+      })
+      .then((audioData) => context.decodeAudioData(audioData))
+      .then((audioBuffer) => {
+        if (active) pageFlipAudioBufferRef.current = audioBuffer;
+      })
+      .catch((audioError) => {
+        if (!active) return;
+        setSoundError(`Page-turn sound could not be loaded: ${audioError.message}`);
+        setSoundEnabled(false);
+      });
+
     return () => {
-      audio.pause();
-      pageFlipAudioRef.current = null;
+      active = false;
+      pageFlipAudioBufferRef.current = null;
+      pageFlipAudioContextRef.current = null;
+      void context.close();
     };
   }, []);
 
@@ -311,14 +336,33 @@ export default function NoteBookReader({ resourceId }) {
         setFormat(resource.format || "");
         if (resource.format === "pdf") {
           const resourceUrl = `${api.defaults.baseURL.replace(/\/+$/, "")}/search/resources/note/${encodeURIComponent(resourceId)}/view`;
-          loadingTask = getDocument({
+          const rangeLoadingTask = getDocument({
             url: resourceUrl,
             withCredentials: true,
             rangeChunkSize: 64 * 1024,
             disableAutoFetch: true,
             disableStream: true,
           });
-          const loadedPdf = await loadingTask.promise;
+          loadingTask = rangeLoadingTask;
+          let loadedPdf;
+          try {
+            loadedPdf = await rangeLoadingTask.promise;
+          } catch (pdfError) {
+            if (
+              !Number.isInteger(pdfError?.status) ||
+              pdfError.status < 500 ||
+              pdfError.status > 599
+            ) {
+              throw pdfError;
+            }
+            await rangeLoadingTask.destroy();
+            const { data: pdfData } = await api.get(resourceUrl, {
+              responseType: "arraybuffer",
+              timeout: 60_000,
+            });
+            loadingTask = getDocument({ data: new Uint8Array(pdfData) });
+            loadedPdf = await loadingTask.promise;
+          }
           if (!active) return;
           setPdf(loadedPdf);
           setPageCount(loadedPdf.numPages);
@@ -393,15 +437,38 @@ export default function NoteBookReader({ resourceId }) {
     setPageIndex(event.data);
   }, []);
 
+  const unlockPageFlipAudio = useCallback(() => {
+    if (!soundEnabled) return;
+    const context = pageFlipAudioContextRef.current;
+    if (context?.state === "suspended") {
+      void context.resume().catch((audioError) => {
+        setSoundError(`Page-turn audio could not start: ${audioError.message}`);
+      });
+    }
+  }, [soundEnabled]);
+
+  useEffect(() => {
+    const unlockForArrowKeys = (event) => {
+      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+        unlockPageFlipAudio();
+      }
+    };
+    window.addEventListener("keydown", unlockForArrowKeys, true);
+    return () => window.removeEventListener("keydown", unlockForArrowKeys, true);
+  }, [unlockPageFlipAudio]);
+
   const handleFlipState = useCallback((event) => {
     if (!soundEnabled || event.data !== "flipping") return;
-    const audio = pageFlipAudioRef.current;
-    if (!audio) return;
-    audio.currentTime = 0;
-    void audio.play().catch((audioError) => {
-      console.error("Could not play the page-turn sound.", audioError);
-      setSoundEnabled(false);
-    });
+    const context = pageFlipAudioContextRef.current;
+    const audioBuffer = pageFlipAudioBufferRef.current;
+    if (!context || !audioBuffer || context.state !== "running") return;
+    const source = context.createBufferSource();
+    const volume = context.createGain();
+    source.buffer = audioBuffer;
+    volume.gain.value = 0.55;
+    source.connect(volume);
+    volume.connect(context.destination);
+    source.start();
   }, [soundEnabled]);
 
   const handleImageError = () => setError("This note image could not be displayed.");
@@ -422,7 +489,7 @@ export default function NoteBookReader({ resourceId }) {
   }
 
   return (
-    <main className="min-h-[calc(100vh-5rem)] bg-[radial-gradient(ellipse_at_50%_35%,#fffdf7_0%,#f6efe3_68%,#eee4d5_100%)] px-3 py-5 sm:px-6 sm:py-8" ref={rootRef}>
+    <main className="min-h-[calc(100vh-5rem)] bg-[radial-gradient(ellipse_at_50%_35%,#fffdf7_0%,#f6efe3_68%,#eee4d5_100%)] px-3 py-5 sm:px-6 sm:py-8" onPointerDownCapture={unlockPageFlipAudio} ref={rootRef}>
       <section className="mx-auto max-w-7xl">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <Link className="inline-flex min-h-10 items-center gap-2 rounded-full border border-stone-200 bg-white/80 px-4 text-sm font-bold text-stone-700 shadow-sm hover:border-orange-300 hover:text-orange-700" href="/search">
@@ -566,6 +633,7 @@ export default function NoteBookReader({ resourceId }) {
                   <button className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 font-bold hover:bg-rose-50" onClick={() => { void recordResourceOpen(); }} type="button">Retry</button>
                 </div>
               )}
+              {soundError && <p className="mt-2 text-center text-xs text-rose-700" role="alert">{soundError}</p>}
               <p className="mt-2 text-center text-[10px] text-stone-500">Drag a page corner or use ← → keys to turn pages</p>
             </div>
           )}

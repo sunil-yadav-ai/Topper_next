@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useGSAP } from "@gsap/react";
 import {
   ArrowUpRight,
+  CheckCircle2,
+  CircleAlert,
   FileText,
   ImagePlus,
   LoaderCircle,
@@ -86,11 +88,13 @@ export default function UploadPage() {
   const { user } = useAuth();
   const rootRef = useRef(null);
   const fileInput = useRef(null);
+  const resultDialogRef = useRef(null);
   const [resourceType, setResourceType] = useState("note");
   const [noteForm, setNoteForm] = useState({
     title: "",
     description: "",
     subject: "",
+    topic: "",
     marks: "",
     university: user?.university ?? "",
   });
@@ -121,12 +125,22 @@ export default function UploadPage() {
     [options.universities, user?.university],
   );
   const detailsComplete = resourceType === "note"
-    ? Object.values(noteForm).every((value) => String(value).trim())
+    ? Object.entries(noteForm).every(([name, value]) =>
+      name === "topic" || String(value).trim(),
+    )
     : Object.values(pyqForm).every((value) => String(value).trim());
   const resourceLabel = resourceType === "note" ? "Study notes" : "Question paper";
   const summaryTitle = resourceType === "note"
     ? noteForm.title || "Your notes title"
     : [pyqForm.subject, pyqForm.course].filter(Boolean).join(" · ") || "Your question paper";
+  const uploadResultMessage = error || notice;
+
+  useEffect(() => {
+    const dialog = resultDialogRef.current;
+    if (!dialog) return;
+    if (uploadResultMessage && !dialog.open) dialog.showModal();
+    else if (!uploadResultMessage && dialog.open) dialog.close();
+  }, [uploadResultMessage]);
 
   useEffect(() => {
     let active = true;
@@ -187,14 +201,6 @@ export default function UploadPage() {
 
   useGSAP(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const success = rootRef.current?.querySelector(".ed-upload-success");
-    if (success) {
-      gsap.fromTo(
-        success,
-        { autoAlpha: 0, y: 10, scale: 0.98 },
-        { autoAlpha: 1, y: 0, scale: 1, duration: 0.48, ease: "back.out(1.25)" },
-      );
-    }
     const dropzone = rootRef.current?.querySelector(".ed-upload-file");
     if (dropzone) {
       gsap.to(dropzone, {
@@ -204,7 +210,12 @@ export default function UploadPage() {
         overwrite: "auto",
       });
     }
-  }, { scope: rootRef, dependencies: [dragging, notice], revertOnUpdate: true });
+  }, { scope: rootRef, dependencies: [dragging], revertOnUpdate: true });
+
+  function closeUploadResult() {
+    setError("");
+    setNotice("");
+  }
 
   function updateField(event) {
     const { name, value } = event.target;
@@ -276,7 +287,7 @@ export default function UploadPage() {
         resourceType === "note" ? "/notes" : "/pyqs",
         formData,
         {
-          timeout: 60000,
+          timeout: resourceType === "note" ? 120000 : 60000,
           headers: { "Content-Type": "multipart/form-data" },
           onUploadProgress(eventProgress) {
             if (eventProgress.total) {
@@ -294,6 +305,7 @@ export default function UploadPage() {
           title: "",
           description: "",
           subject: "",
+          topic: "",
           marks: "",
         }));
       } else {
@@ -382,13 +394,6 @@ export default function UploadPage() {
           </div>
 
           {optionsError && <p className="ed-upload-message ed-upload-error" role="alert">Some suggestions could not be loaded: {optionsError}</p>}
-          {error && <p className="ed-upload-message ed-upload-error" role="alert">{error}</p>}
-          {notice && (
-            <div className="ed-upload-message ed-upload-success" role="status">
-              <p><AnimatedIllustration className="ed-upload-success-art" variant="success" size={28} /> {notice}</p>
-              <Link href="/library">View your uploads →</Link>
-            </div>
-          )}
 
           <form
             aria-labelledby={resourceType === "note" ? "upload-notes-tab" : "upload-question-paper-tab"}
@@ -415,6 +420,7 @@ export default function UploadPage() {
                   <textarea maxLength={2000} name="description" onChange={updateField} placeholder="Briefly describe what these notes cover." required rows={3} value={noteForm.description} />
                 </label>
                 <SearchableField label="Subject" name="subject" onChange={updateField} options={subjectOptions} placeholder="Choose or type a subject" value={noteForm.subject} />
+                <Field label="Topic (optional)" maxLength={160} name="topic" onChange={updateField} placeholder="e.g. Rasterization" value={noteForm.topic} />
                 <SearchableField label="University" name="university" onChange={updateField} options={universityOptions} placeholder="Choose or type a university" value={noteForm.university} />
               </div>
             ) : (
@@ -489,7 +495,9 @@ export default function UploadPage() {
               <div aria-live="polite" className="ed-upload-progress">
                 <AnimatedIllustration className="ed-upload-progress-art" variant="upload" size={28} />
                 <div><span style={{ width: `${progress}%` }} /></div>
-                <span>{progress >= 100 ? "Saving and processing…" : `Uploading ${progress}%`}</span>
+                <span>{progress >= 100
+                  ? resourceType === "note" ? "Checking subject relevance…" : "Saving and processing…"
+                  : `Uploading ${progress}%`}</span>
               </div>
             )}
 
@@ -514,6 +522,9 @@ export default function UploadPage() {
             <span className="ed-upload-summary-type">{resourceLabel}</span>
             <dl>
               <div><dt>Subject</dt><dd>{form.subject || "Add a subject"}</dd></div>
+              {resourceType === "note" && (
+                <div><dt>Topic</dt><dd>{noteForm.topic || "Optional"}</dd></div>
+              )}
               <div><dt>University</dt><dd>{form.university || "Add a university"}</dd></div>
               {resourceType === "note" ? (
                 <div><dt>Maximum marks</dt><dd>{noteForm.marks || "Not specified"}</dd></div>
@@ -537,6 +548,34 @@ export default function UploadPage() {
           <Link href="/search">Explore shared resources <span aria-hidden="true">↗</span></Link>
           </div>
         </aside>
+        <dialog
+          aria-describedby="upload-result-message"
+          aria-labelledby="upload-result-title"
+          className={`ed-upload-result-dialog${error ? " is-error" : " is-success"}`}
+          onClose={closeUploadResult}
+          ref={resultDialogRef}
+          role={error ? "alertdialog" : "dialog"}
+        >
+          <div className="ed-upload-result-icon" aria-hidden="true">
+            {error ? <CircleAlert size={25} /> : <CheckCircle2 size={25} />}
+          </div>
+          <h2 id="upload-result-title">
+            {error
+              ? error.startsWith("Notes rejected:")
+                ? "Notes rejected"
+                : "Upload could not be completed"
+              : resourceType === "note"
+                ? "Notes approved for upload"
+                : "Upload complete"}
+          </h2>
+          <p id="upload-result-message">{uploadResultMessage}</p>
+          <div className="ed-upload-result-actions">
+            {notice && <Link href="/library">View your uploads</Link>}
+            <button autoFocus onClick={() => resultDialogRef.current?.close()} type="button">
+              Close
+            </button>
+          </div>
+        </dialog>
       </div>
     </main>
   );
