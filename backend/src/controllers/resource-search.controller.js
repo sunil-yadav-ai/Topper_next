@@ -90,6 +90,7 @@ export async function getResourceViewInfo(request, response) {
   response.json({
     status: "success",
     resource: {
+      title: resource.title ?? resource.subject ?? "Study resource",
       format: resource.storage.format ?? "pdf",
       uploaderName: resource.uploadedBy?.fullName ?? "",
     },

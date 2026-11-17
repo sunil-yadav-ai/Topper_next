@@ -20,6 +20,7 @@ import { PageLoader } from "../components/PageState.jsx";
 import AdaptiveTutor from "../components/AdaptiveTutor.jsx";
 import { usePageMotion } from "../lib/usePageMotion.js";
 import { useAuth } from "../context/AuthContext.jsx";
+import NoteBookReader from "../components/NoteBookReader.jsx";
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
@@ -32,6 +33,11 @@ function messageFrom(error) {
 }
 
 export default function ResourceViewerPage({ resourceType = "", resourceId = "" }) {
+  if (resourceType === "note") return <NoteBookReader resourceId={resourceId} />;
+  return <QuestionPaperViewer resourceType={resourceType} resourceId={resourceId} />;
+}
+
+function QuestionPaperViewer({ resourceType = "", resourceId = "" }) {
   const canvasRef = useRef(null);
   const rootRef = useRef(null);
   const activityRecordRef = useRef("");

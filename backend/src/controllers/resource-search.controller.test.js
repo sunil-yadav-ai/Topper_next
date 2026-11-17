@@ -13,6 +13,7 @@ const [{ getResourceViewInfo, viewNotePreview }, { default: Note }] = await Prom
 test("returns only safe metadata for an accessible resource viewer", async () => {
   const originalFindById = Note.findById;
   const resource = {
+    title: "Calculus notes",
     publicationStatus: "published",
     visibility: "public",
     storage: {
@@ -41,7 +42,11 @@ test("returns only safe metadata for an accessible resource viewer", async () =>
     );
     assert.deepEqual(response.payload, {
       status: "success",
-      resource: { format: "pdf", uploaderName: "Aarav Sharma" },
+      resource: {
+        title: "Calculus notes",
+        format: "pdf",
+        uploaderName: "Aarav Sharma",
+      },
     });
     assert.equal(JSON.stringify(response.payload).includes("private/storage/id"), false);
   } finally {
