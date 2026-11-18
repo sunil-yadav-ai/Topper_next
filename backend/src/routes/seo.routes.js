@@ -94,7 +94,7 @@ function renderPage({
   <body>
     <header><a class="brand" href="/">Top<span class="brand-mark">per</span></a></header>
     <main>${body}</main>
-    <footer><a href="/">Topper home</a> · <a href="/subjects">Browse subjects</a> · <a href="/pyqs">Previous-year question papers</a></footer>
+    <footer><a href="/">Topper home</a></footer>
   </body>
 </html>`;
 }
@@ -422,101 +422,6 @@ seoRouter.get("/api/seo/subjects/:subjectSlug", async (request, response) => {
 
 seoRouter.get("/notes/:resourceId", (request, response) => serveResourcePage(request, response, "note"));
 seoRouter.get("/notes/:resourceId/:slug", (request, response) => serveResourcePage(request, response, "note"));
-seoRouter.get("/question-papers/:resourceId", (request, response) => serveResourcePage(request, response, "pyq"));
-seoRouter.get("/question-papers/:resourceId/:slug", (request, response) => serveResourcePage(request, response, "pyq"));
-
-seoRouter.get("/subjects", async (_request, response) => {
-  const subjects = await getSubjectDirectoryPage();
-  const siteOrigin = getSiteOrigin();
-  const title = "Study Subjects, Notes and Question Papers | Topper";
-  const description = `Browse ${subjects.length} subjects with published student notes and previous-year question papers on Topper.`;
-  const canonical = new URL("/subjects", siteOrigin).href;
-  const breadcrumbs = [
-    { name: "Home", url: new URL("/", siteOrigin).href },
-    { name: "Subjects" },
-  ];
-  const body = `${renderBreadcrumbs(breadcrumbs)}
-    <h1>Browse study subjects</h1>
-    <p class="lead">Explore subject areas with published resources shared on Topper.</p>
-    ${subjects.length
-      ? `<ul>${subjects.map((subject) => `<li><a class="resource-title" href="/subjects/${escapeHtml(subject.slug)}">${escapeHtml(subject.subject)}</a> <span class="muted">(${subject.resourceCount} resources)</span></li>`).join("")}</ul>`
-      : "<p>There are no subject pages with published resources yet.</p>"}`;
-  const structuredData = [
-    {
-      "@context": "https://schema.org",
-      "@type": "Organization",
-      "@id": `${new URL("/", siteOrigin).href}#organization`,
-      name: "Topper",
-      url: new URL("/", siteOrigin).href,
-    },
-    makeBreadcrumbs(breadcrumbs),
-    {
-      "@context": "https://schema.org",
-      "@type": "CollectionPage",
-      name: title,
-      description,
-      url: canonical,
-      mainEntity: {
-        "@type": "ItemList",
-        numberOfItems: subjects.length,
-        itemListElement: subjects.map((subject, index) => ({
-          "@type": "ListItem",
-          position: index + 1,
-          name: subject.subject,
-          url: new URL(`/subjects/${subject.slug}`, siteOrigin).href,
-        })),
-      },
-    },
-  ];
-  response
-    .set("Cache-Control", "public, max-age=300, stale-while-revalidate=600")
-    .type("html")
-    .send(renderPage({
-      title,
-      description,
-      canonical,
-      body,
-      structuredData,
-      robots: subjects.length ? "index,follow" : "noindex,follow",
-    }));
-});
-
-seoRouter.get("/subjects/:subjectSlug/topics/:topicSlug", async (request, response) => {
-  const subjectSlug = request.params.subjectSlug.toLowerCase();
-  const topicSlug = request.params.topicSlug.toLowerCase();
-  const topic = await getTopicPage(subjectSlug, topicSlug);
-  if (!topic) {
-    sendNotFound(response, "This published topic could not be found.");
-    return;
-  }
-  const canonicalPath = `/subjects/${topic.subject.slug}/topics/${topic.topicSlug}`;
-  if (new URL(request.originalUrl, getSiteOrigin()).pathname !== canonicalPath) {
-    response.redirect(301, new URL(canonicalPath, getSiteOrigin()).href);
-    return;
-  }
-  response
-    .set("Cache-Control", "public, max-age=300, stale-while-revalidate=600")
-    .type("html")
-    .send(renderPage(renderTopicBody(topic, getSiteOrigin())));
-});
-
-seoRouter.get("/subjects/:subjectSlug", async (request, response) => {
-  const subject = await getSubjectPage(request.params.subjectSlug.toLowerCase());
-  if (!subject) {
-    sendNotFound(response, "This subject does not have enough published resources for a landing page.");
-    return;
-  }
-  const canonicalPath = `/subjects/${subject.slug}`;
-  if (new URL(request.originalUrl, getSiteOrigin()).pathname !== canonicalPath) {
-    response.redirect(301, new URL(canonicalPath, getSiteOrigin()).href);
-    return;
-  }
-  response
-    .set("Cache-Control", "public, max-age=300, stale-while-revalidate=600")
-    .type("html")
-    .send(renderPage(renderSubjectBody(subject, getSiteOrigin())));
-});
-
 seoRouter.use((request, response, next) => {
   if (
     !["GET", "HEAD"].includes(request.method) ||

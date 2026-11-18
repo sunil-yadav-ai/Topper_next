@@ -9,6 +9,7 @@ import { api } from "../lib/api.js";
 import { usePageMotion } from "../lib/usePageMotion.js";
 import { PageLoader } from "../components/PageState.jsx";
 import ProfileImageCropDialog from "../components/ProfileImageCropDialog.jsx";
+import ProfilePeopleSearch from "../components/ProfilePeopleSearch.jsx";
 import StudentActivityHeatmap from "../components/StudentActivityHeatmap.jsx";
 
 const tabs = [
@@ -388,6 +389,8 @@ export default function ProfilePage({ username = "" }) {
             )}
           </div>
         </section>
+
+        <ProfilePeopleSearch />
 
         <StudentActivityHeatmap
           activity={activity}

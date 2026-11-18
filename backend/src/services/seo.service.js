@@ -74,8 +74,9 @@ export function metaDescription(value) {
 }
 
 function resourcePath(resource, type) {
-  const collectionPath = type === "note" ? "notes" : "question-papers";
+  const collectionPath = type === "note" ? "notes" : "resources/pyq";
   const basePath = `/${collectionPath}/${resource._id}`;
+  if (type === "pyq") return basePath;
   const slug = slugify(resourceTitle(resource, type));
   return slug ? `${basePath}/${slug}` : basePath;
 }
@@ -170,19 +171,7 @@ export async function getPublicResourcePage(type, resourceId) {
     .slice(0, 6);
 
   const serializedResource = serializeResource(resource, type);
-  const subject = await resolveSubject(slugify(resource.subject));
-  serializedResource.subjectPath = subject ? `/subjects/${subject.slug}` : "";
-  if (type === "note" && subject && resource.topic) {
-    const topicCount = await Note.countDocuments({
-      ...publicNoteFilter,
-      subject: exactText(resource.subject),
-      topic: exactText(resource.topic),
-    });
-    if (topicCount >= 2) {
-      serializedResource.topicPath =
-        `/subjects/${subject.slug}/topics/${slugify(resource.topic)}`;
-    }
-  }
+  serializedResource.subjectPath = "";
 
   return {
     resource: serializedResource,
@@ -378,95 +367,21 @@ export async function buildSitemapEntries() {
   const siteOrigin = getSiteOrigin();
   const entries = [
     { path: "/", lastmod: null },
-    { path: "/pyqs", lastmod: null },
     { path: "/advertising", lastmod: null },
     { path: "/terms", lastmod: null },
   ];
   if (mongoose.connection.readyState !== 1) return entries;
 
-  const subjects = await getSubjectGroups();
-  if (subjects.length) entries.push({ path: "/subjects", lastmod: null });
-  for (const subject of subjects) {
-    if (entries.length >= maxSitemapUrls) break;
-    entries.push({
-      path: `/subjects/${subject.slug}`,
-      lastmod: subject.updatedAt,
-    });
-  }
-  if (entries.length < maxSitemapUrls && subjects.length) {
-    const topicGroups = await Note.aggregate([
-      {
-        $match: {
-          ...publicNoteFilter,
-          subject: { $type: "string", $ne: "" },
-          topic: { $type: "string", $ne: "" },
-        },
-      },
-      {
-        $group: {
-          _id: { subject: "$subject", topic: "$topic" },
-          count: { $sum: 1 },
-          updatedAt: { $max: { $ifNull: ["$updatedAt", "$createdAt"] } },
-        },
-      },
-      { $sort: { "_id.subject": 1, "_id.topic": 1 } },
-    ]);
-    const sitemapTopics = new Map();
-    const subjectsByName = new Map(subjects.map((subject) => [subject.subject, subject]));
-    for (const group of topicGroups) {
-      const subject = subjectsByName.get(group._id.subject);
-      if (!subject) continue;
-      const slug = slugify(group._id.topic);
-      if (!slug) continue;
-      const key = `${subject.slug}/${slug}`;
-      const current = sitemapTopics.get(key) ?? {
-        subject,
-        slug,
-        names: new Set(),
-        count: 0,
-        updatedAt: null,
-      };
-      current.names.add(group._id.topic);
-      current.count += group.count;
-      if (!current.updatedAt || group.updatedAt > current.updatedAt) {
-        current.updatedAt = group.updatedAt;
-      }
-      sitemapTopics.set(key, current);
-    }
-    for (const topic of sitemapTopics.values()) {
-      if (topic.names.size !== 1 || topic.count < 2) continue;
-      if (entries.length >= maxSitemapUrls) break;
-      entries.push({
-        path: `/subjects/${topic.subject.slug}/topics/${topic.slug}`,
-        lastmod: topic.updatedAt,
-      });
-    }
-  }
-
   const remaining = Math.max(0, maxSitemapUrls - entries.length);
-  const noteLimit = Math.ceil(remaining / 2);
-  const [notes, pyqs] = await Promise.all([
-    Note.find(publicNoteFilter)
-      .select("_id title subject createdAt updatedAt")
-      .sort({ updatedAt: -1, createdAt: -1 })
-      .limit(noteLimit)
-      .lean(),
-    Pyq.find(publicPyqFilter)
-      .select("_id title subject examinationYear examType createdAt updatedAt")
-      .sort({ updatedAt: -1, createdAt: -1 })
-      .limit(remaining - noteLimit)
-      .lean(),
-  ]);
+  const notes = await Note.find(publicNoteFilter)
+    .select("_id title subject createdAt updatedAt")
+    .sort({ updatedAt: -1, createdAt: -1 })
+    .limit(remaining)
+    .lean();
   for (const note of notes) {
     entries.push({
       path: resourcePath(note, "note"),
       lastmod: note.updatedAt ?? note.createdAt,
-    });
-  }
-  for (const pyq of pyqs) {
-    entries.push({
-      path: resourcePath(pyq, "pyq"),
-      lastmod: pyq.updatedAt ?? pyq.createdAt,
     });
   }
 

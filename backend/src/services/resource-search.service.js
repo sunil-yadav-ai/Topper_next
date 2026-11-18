@@ -306,6 +306,17 @@ function sortFor(sort) {
     : { createdAt: -1, _id: 1 };
 }
 
+function serializeUploader(uploader) {
+  if (!uploader) return null;
+  const uploaderId = uploader._id?.toString()
+    ?? (mongoose.isValidObjectId(uploader) ? uploader.toString() : "");
+  return {
+    ...(uploaderId ? { id: uploaderId } : {}),
+    fullName: uploader.fullName ?? "",
+    username: uploader.username ?? "",
+  };
+}
+
 async function findSmartSearchCandidates(Model, filter, query, fields, sort) {
   if (!query.tokens.length) return [];
   const expressions = [...new Set([query.normalized, ...query.tokens])]
@@ -383,12 +394,7 @@ function asNote(note) {
     marks: note.marks ?? null,
     unit: note.unit,
     topic: note.topic,
-    uploader: note.uploadedBy
-      ? {
-          fullName: note.uploadedBy.fullName,
-          username: note.uploadedBy.username,
-        }
-      : null,
+    uploader: serializeUploader(note.uploadedBy),
     fileFormat: note.storage.format,
     pageCount: note.ocrPageCount ?? 1,
     downloadCount: note.downloadCount ?? 0,
@@ -417,12 +423,7 @@ function asPyq(pyq) {
     downloadCount: pyq.downloadCount ?? 0,
     helpfulCount: pyq.helpfulCount ?? 0,
     examinationYear: pyq.examinationYear,
-    uploader: pyq.uploadedBy
-      ? {
-          fullName: pyq.uploadedBy.fullName,
-          username: pyq.uploadedBy.username,
-        }
-      : null,
+    uploader: serializeUploader(pyq.uploadedBy),
     createdAt: pyq.createdAt,
     viewPath: `/search/resources/pyq/${pyq._id}/view`,
   };

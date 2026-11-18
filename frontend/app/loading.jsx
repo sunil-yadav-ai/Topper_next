@@ -1,5 +1,5 @@
-import { PageLoader } from "../src/components/PageState.jsx";
+import { StagedPageLoader } from "../src/components/PageState.jsx";
 
 export default function Loading() {
-  return <PageLoader fullScreen label="Preparing your learning space…" />;
+  return <StagedPageLoader label="Preparing your learning space…" />;
 }

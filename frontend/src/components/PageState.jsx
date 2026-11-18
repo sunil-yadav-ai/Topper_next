@@ -1,7 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useGSAP } from "@gsap/react";
+import { usePathname } from "next/navigation";
 import { gsap } from "../lib/gsap.js";
 import {
   getPendingPageRequestCount,
@@ -126,16 +133,118 @@ function useDelayedVisibility(active, delay = 200) {
   return visible;
 }
 
-export function ApiPageLoader() {
+const MAIN_LOADING_STAGE_MS = 1200;
+
+export function StagedPageLoader({ label = "Opening your page…" }) {
+  const showLogoLoader = useDelayedVisibility(true, MAIN_LOADING_STAGE_MS);
+
+  if (showLogoLoader) {
+    return <PageLoader className="ed-page-loader-centered" label={label} />;
+  }
+  return <PageLoader fullScreen label={label} />;
+}
+
+export function RouteNavigationLoader({ onPendingChange }) {
+  const pathname = usePathname();
+  const [pending, setPending] = useState(false);
+  const [stage, setStage] = useState("main");
   const requestCount = useSyncExternalStore(
     subscribeToPageRequests,
     getPendingPageRequestCount,
     () => 0,
   );
-  const visible = useDelayedVisibility(requestCount > 0);
+  const sourcePathRef = useRef("");
+  const fallbackTimerRef = useRef(null);
+  const stageTimerRef = useRef(null);
+  const finishNavigation = useCallback(() => {
+    sourcePathRef.current = "";
+    setPending(false);
+    setStage("main");
+    onPendingChange?.(false);
+    window.clearTimeout(fallbackTimerRef.current);
+    window.clearTimeout(stageTimerRef.current);
+    fallbackTimerRef.current = null;
+    stageTimerRef.current = null;
+  }, [onPendingChange]);
 
-  if (!visible) return null;
-  return <PageLoader className="ed-api-page-loader" label="Loading your page…" />;
+  useEffect(() => {
+    function handleDocumentClick(event) {
+      if (
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) return;
+
+      const link = event.target instanceof Element
+        ? event.target.closest("a[href]")
+        : null;
+      if (
+        !link ||
+        link.hasAttribute("download") ||
+        (link.target && link.target !== "_self")
+      ) return;
+
+      const destination = new URL(link.href, window.location.href);
+      if (
+        destination.origin !== window.location.origin ||
+        destination.pathname === window.location.pathname
+      ) return;
+
+      sourcePathRef.current = window.location.pathname;
+      setPending(true);
+      setStage("main");
+      onPendingChange?.(true);
+      window.clearTimeout(fallbackTimerRef.current);
+      window.clearTimeout(stageTimerRef.current);
+      fallbackTimerRef.current = window.setTimeout(finishNavigation, 15000);
+      stageTimerRef.current = window.setTimeout(
+        () => setStage("logo"),
+        MAIN_LOADING_STAGE_MS,
+      );
+    }
+
+    document.addEventListener("click", handleDocumentClick, true);
+    return () => {
+      document.removeEventListener("click", handleDocumentClick, true);
+      window.clearTimeout(fallbackTimerRef.current);
+      window.clearTimeout(stageTimerRef.current);
+    };
+  }, [finishNavigation, onPendingChange]);
+
+  useEffect(() => {
+    if (
+      !pending ||
+      pathname === sourcePathRef.current ||
+      requestCount > 0
+    ) return undefined;
+    const timer = window.setTimeout(finishNavigation, 150);
+    return () => window.clearTimeout(timer);
+  }, [finishNavigation, pathname, pending, requestCount]);
+
+  if (!pending) return null;
+  if (stage === "main") {
+    return <PageLoader fullScreen label="Opening your page…" />;
+  }
+  return (
+    <PageLoader
+      className="ed-page-loader-centered"
+      label="Opening your page…"
+    />
+  );
+}
+
+export function ApiPageLoader({ suppressed = false }) {
+  const requestCount = useSyncExternalStore(
+    subscribeToPageRequests,
+    getPendingPageRequestCount,
+    () => 0,
+  );
+  const visible = useDelayedVisibility(requestCount > 0 && !suppressed);
+
+  if (suppressed || !visible) return null;
+  return <PageLoader className="ed-page-loader-centered" label="Loading your page…" />;
 }
 
 export function EmptyState({ title, children, icon = "book", illustration, className = "" }) {

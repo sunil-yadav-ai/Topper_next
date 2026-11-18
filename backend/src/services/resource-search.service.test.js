@@ -193,6 +193,11 @@ test("combines subject, topic, and university filters and returns the matching c
     department: "Computer Science",
     subject: "Computer Graphics",
     university: "PTU",
+    uploadedBy: {
+      _id: { toString: () => "507f1f77bcf86cd799439011" },
+      fullName: "Ada Student",
+      username: "ada.student",
+    },
     visibility: "public",
     topic: "Rendering",
     unit: "Unit 1",
@@ -223,6 +228,11 @@ test("combines subject, topic, and university filters and returns the matching c
     assert.equal(result.resources.length, 1);
     assert.equal(result.resources[0].id, "note-123");
     assert.equal(result.resources[0].subject, "Computer Graphics");
+    assert.deepEqual(result.resources[0].uploader, {
+      id: "507f1f77bcf86cd799439011",
+      fullName: "Ada Student",
+      username: "ada.student",
+    });
     assert.equal(result.pagination.total, 1);
   } finally {
     Note.aggregate = originalNoteAggregate;

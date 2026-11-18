@@ -1,5 +1,5 @@
-import { PageLoader } from "../../src/components/PageState.jsx";
+import { StagedPageLoader } from "../../src/components/PageState.jsx";
 
 export default function WorkspaceLoading() {
-  return <PageLoader label="Opening your learning space…" />;
+  return <StagedPageLoader label="Opening your learning space…" />;
 }

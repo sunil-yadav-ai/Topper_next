@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Note from "../models/Note.js";
 import Pyq from "../models/Pyq.js";
 import User from "../models/User.js";
@@ -65,15 +66,69 @@ function publicProfile(user) {
   };
 }
 
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function publicProfileSearchResult(user) {
+  return {
+    id: user._id.toString(),
+    fullName: user.fullName,
+    username: user.username,
+    avatarUrl: user.avatarUrl ?? "",
+  };
+}
+
+export async function searchPublicProfiles(request, response) {
+  const rawQuery = request.query?.q;
+  if (rawQuery === undefined || rawQuery === "") {
+    response.json({ status: "success", users: [] });
+    return;
+  }
+  if (typeof rawQuery !== "string") {
+    throw badRequest("Search query must be a string.");
+  }
+
+  const query = rawQuery.trim().replace(/^@/, "");
+  if (query.length > 50) {
+    throw badRequest("Search query must be at most 50 characters.");
+  }
+  if (query.length < 2) {
+    response.json({ status: "success", users: [] });
+    return;
+  }
+
+  const pattern = new RegExp(escapeRegex(query), "i");
+  const users = await User.find({
+    $or: [{ fullName: pattern }, { username: pattern }],
+  })
+    .select("fullName username avatarUrl")
+    .sort({ fullName: 1 })
+    .limit(20)
+    .lean();
+
+  response.json({
+    status: "success",
+    users: users.map(publicProfileSearchResult),
+  });
+}
+
 export async function getPublicProfile(request, response) {
   const username = normalizeUsername(request.params.username);
-  if (!usernamePattern.test(username)) {
+  const validUsername = usernamePattern.test(username);
+  const validUserId = mongoose.isValidObjectId(username);
+  if (!validUsername && !validUserId) {
     throw badRequest("Username is invalid.");
   }
 
-  const user = await User.findOne({ username }).select(
-    "fullName username bio college university course department avatarUrl coverImage createdAt role",
-  );
+  const profileFields =
+    "fullName username bio college university course department avatarUrl coverImage createdAt role";
+  let user = validUsername
+    ? await User.findOne({ username }).select(profileFields)
+    : null;
+  if (!user && validUserId) {
+    user = await User.findById(username).select(profileFields);
+  }
   if (!user) {
     const error = new Error("Profile not found.");
     error.statusCode = 404;

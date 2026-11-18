@@ -195,22 +195,19 @@ export default function ResourceSearchPage() {
     const controller = new AbortController();
     setLoading(true);
     setError("");
-    const timer = window.setTimeout(() => {
-      api
-        .get("/search", { params: searchParams, signal: controller.signal })
-        .then(({ data }) => {
-          setResources(data.resources);
-          setPagination(data.pagination);
-        })
-        .catch((requestError) => {
-          if (requestError.name !== "CanceledError") setError(errorText(requestError));
-        })
-        .finally(() => {
-          if (!controller.signal.aborted) setLoading(false);
-        });
-    }, 250);
+    api
+      .get("/search", { params: searchParams, signal: controller.signal })
+      .then(({ data }) => {
+        setResources(data.resources);
+        setPagination(data.pagination);
+      })
+      .catch((requestError) => {
+        if (requestError.name !== "CanceledError") setError(errorText(requestError));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
     return () => {
-      window.clearTimeout(timer);
       controller.abort();
     };
   }, [searchParams, searchRefresh]);
@@ -611,6 +608,9 @@ export default function ResourceSearchPage() {
             <div className="ed-explore-resource-grid grid gap-5 md:grid-cols-2">
               {resources.map((resource) => {
                 const hasVoted = helpfulVotes.has(`${resource.type}:${resource.id}`);
+                const uploaderProfile = resource.uploader?.username || resource.uploader?.id;
+                const uploaderLabel = resource.uploader?.fullName
+                  || (uploaderProfile ? "View uploader profile" : "Uploader unavailable");
                 return (
                   <article className={`ed-explore-resource-card resource-card group relative flex min-w-0 flex-col overflow-hidden rounded-[1.65rem] border border-orange-100 shadow-[0_12px_30px_rgba(23,23,23,0.08)] transition duration-300 hover:-translate-y-1 hover:border-orange-200 hover:shadow-[0_20px_40px_rgba(23,23,23,0.15)] ${resource.type === "note" ? "resource-card--note" : "bg-[#fff9ec]"}`} key={`${resource.type}-${resource.id}`} data-motion-stagger>
                     {resource.type === "note" && (
@@ -618,16 +618,16 @@ export default function ResourceSearchPage() {
                     )}
                     <div className={`ed-explore-card-content relative z-10 flex min-h-full flex-col p-4 sm:p-5 ${resource.type === "note" ? "min-h-[550px]" : ""}`}>
                     <div className="flex items-center justify-between gap-2">
-                      {resource.uploader?.username ? (
+                      {uploaderProfile ? (
                         <Link
                           className="ed-explore-badge rounded-lg border border-orange-200/80 bg-white/80 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-brand shadow-sm backdrop-blur-md hover:underline"
-                          href={`/profile/${encodeURIComponent(resource.uploader.username)}`}
+                          href={`/profile/${encodeURIComponent(uploaderProfile)}`}
                         >
-                          {resource.uploader.fullName || "Uploader unavailable"}
+                          {uploaderLabel}
                         </Link>
                       ) : (
                         <span className="ed-explore-badge rounded-lg border border-orange-200/80 bg-white/80 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-brand shadow-sm backdrop-blur-md">
-                          {resource.uploader?.fullName || "Uploader unavailable"}
+                          {uploaderLabel}
                         </span>
                       )}
                       <span className="ed-explore-format rounded-lg border border-white/80 bg-white/75 px-2.5 py-1 text-xs font-bold uppercase text-slate-600 shadow-sm backdrop-blur-md">{resource.fileFormat?.toUpperCase()}</span>

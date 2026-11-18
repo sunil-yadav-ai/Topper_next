@@ -23,8 +23,8 @@ export function usePageMotion(rootRef, { dependencies = [] } = {}) {
         if (introItems.length) {
           gsap.timeline({ defaults: { ease: "power3.out" } }).fromTo(
             introItems,
-            { autoAlpha: 0, y: distance },
-            { autoAlpha: 1, y: 0, duration: 0.58, stagger: 0.07 },
+            { y: distance },
+            { y: 0, duration: 0.22, stagger: 0.025 },
           );
         }
 
@@ -32,7 +32,7 @@ export function usePageMotion(rootRef, { dependencies = [] } = {}) {
           gsap.fromTo(
             avatar,
             { autoAlpha: 0, scale: 0.78, rotation: -7 },
-            { autoAlpha: 1, scale: 1, rotation: 0, duration: 0.72, delay: 0.12, ease: "back.out(1.5)" },
+            { autoAlpha: 1, scale: 1, rotation: 0, duration: 0.3, delay: 0.05, ease: "back.out(1.5)" },
           );
         });
         const avatarCleanups = [];
@@ -67,7 +67,7 @@ export function usePageMotion(rootRef, { dependencies = [] } = {}) {
           const count = { value: 0 };
           gsap.to(count, {
             value,
-            duration: 0.9,
+            duration: 0.45,
             ease: "power2.out",
             onUpdate: () => {
               counter.textContent = Math.round(count.value).toLocaleString();
@@ -91,8 +91,8 @@ export function usePageMotion(rootRef, { dependencies = [] } = {}) {
               {
                 autoAlpha: 1,
                 y: 0,
-                duration: 0.52,
-                stagger: 0.055,
+                duration: 0.2,
+                stagger: 0.025,
                 ease: "power2.out",
                 scrollTrigger: {
                   trigger: batch[0],
@@ -115,7 +115,7 @@ export function usePageMotion(rootRef, { dependencies = [] } = {}) {
             {
               autoAlpha: 1,
               y: 0,
-              duration: 0.55,
+              duration: 0.2,
               ease: "power2.out",
               scrollTrigger: {
                 trigger: item,

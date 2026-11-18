@@ -6,18 +6,16 @@ export function getPostLoginPath(user) {
 
 export function getPublicResourcePath(resource) {
   const type = resource?.type === "pyq" ? "pyq" : "note";
-  const title = resource?.title?.trim() || (
-    type === "pyq"
-      ? `${resource.subject} ${resource.examinationYear} ${resource.examType} question paper`
-      : `${resource.subject} notes`
-  );
+  if (type === "pyq") {
+    return `/resources/pyq/${encodeURIComponent(resource.id)}`;
+  }
+  const title = resource?.title?.trim() || `${resource.subject} notes`;
   const slug = title
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
-  const collectionPath = type === "pyq" ? "question-papers" : "notes";
-  const resourcePath = `/${collectionPath}/${encodeURIComponent(resource.id)}`;
+  const resourcePath = `/notes/${encodeURIComponent(resource.id)}`;
   return slug ? `${resourcePath}/${slug}` : resourcePath;
 }

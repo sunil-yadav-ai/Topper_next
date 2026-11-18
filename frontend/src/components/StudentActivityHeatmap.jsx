@@ -37,8 +37,7 @@ function activityDescription(day) {
 
 function getIntensity(day) {
   if (day.status === "untracked") return "untracked";
-  if (day.status === "today") return "today";
-  if (day.status === "absent") return "level-0";
+  if (day.totalResourcesOpened <= 0) return "level-0";
   if (day.totalResourcesOpened === 1) return "level-1";
   if (day.totalResourcesOpened <= 3) return "level-2";
   if (day.totalResourcesOpened <= 5) return "level-3";

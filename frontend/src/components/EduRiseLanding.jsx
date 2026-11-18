@@ -530,7 +530,7 @@ function EduRiseFooter({ apiStatus }) {
             <span className="ed-footer-free">FREE TO LEARN · FREE TO SHARE</span>
           </div>
           <div className="ed-footer-links">
-            <div><h2>Explore</h2><Link href="/search">Knowledge vault</Link><Link href="/subjects">Study subjects</Link><Link href="/pyqs">Previous-year papers</Link><Link href="/syllabus">Syllabus explorer</Link></div>
+            <div><h2>Explore</h2><Link href="/search">Knowledge vault</Link><Link href="/syllabus">Syllabus explorer</Link></div>
             <div><h2>Join in</h2><Link href="/register">Share your notes</Link><Link href="/login">Student sign in</Link><Link href="/library">Your library</Link></div>
             <div><h2>About</h2><a href="#about">Our story</a><a href="#verification">Thoughtful verification</a><Link href="/terms">Terms &amp; conditions</Link></div>
             <div><h2>Privacy</h2><Link href="/advertising">Privacy &amp; advertising details</Link>{validContactEmail ? <a href={`mailto:${validContactEmail}`}>Contact Topper</a> : <span className="ed-footer-coming-soon">Contact details coming soon</span>}</div>
@@ -949,9 +949,7 @@ export default function EduRiseLanding() {
             <span /><span />
           </button>
           <nav aria-label="Main navigation" className={`ed-nav ${menuOpen ? "ed-nav-open" : ""}`}>
-            <a href="#explore" onClick={() => setMenuOpen(false)}>Explore</a>
-            <Link href="/subjects" onClick={() => setMenuOpen(false)}>Subjects</Link>
-            <Link href="/pyqs" onClick={() => setMenuOpen(false)}>Question papers</Link>
+            <Link href="/search" onClick={() => setMenuOpen(false)}>Explore</Link>
             <a href="#verification" onClick={() => setMenuOpen(false)}>How we check</a>
             <a href="#contributors" onClick={() => setMenuOpen(false)}>Our people</a>
             {user?.username && (
@@ -994,7 +992,9 @@ export default function EduRiseLanding() {
             <HeroNotebook />
           </Reveal>
         </div>
-        <a className="ed-hero-scroll" href="#explore"><span>SCROLL TO EXPLORE</span><i>↓</i></a>
+        <a className="ed-hero-scroll" href={user ? "#explore" : "#verification"}>
+          <span>{user ? "SCROLL TO EXPLORE" : "SCROLL TO LEARN"}</span><i>↓</i>
+        </a>
         <span aria-hidden="true" className="ed-hero-edge">TOPPER · LEARN TOGETHER · RISE TOGETHER ·</span>
       </section>
 
@@ -1008,7 +1008,7 @@ export default function EduRiseLanding() {
         </div>
       </div>
 
-      <SubjectVault />
+      {user && <SubjectVault />}
 
       <AdUnit className="ed-ad-slot" placement="home" />
 

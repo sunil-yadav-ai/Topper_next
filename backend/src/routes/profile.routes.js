@@ -1,6 +1,7 @@
 import { Router } from "../lib/router.js";
 import {
   getPublicProfile,
+  searchPublicProfiles,
   updateOwnProfile,
 } from "../controllers/profile.controller.js";
 import { requireAuth } from "../middleware/auth.middleware.js";
@@ -13,6 +14,7 @@ const receiveProfileImages = receiveMultipart({
   maxFiles: 2,
 });
 
+profileRouter.get("/search", searchPublicProfiles);
 profileRouter.get("/:username", getPublicProfile);
 profileRouter.patch("/me", requireAuth, receiveProfileImages, updateOwnProfile);
 

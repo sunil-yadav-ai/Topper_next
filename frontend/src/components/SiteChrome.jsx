@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useGSAP } from "@gsap/react";
 import {
   BookOpenText,
   Compass,
@@ -18,11 +17,9 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext.jsx";
-import { gsap, ScrollTrigger } from "../lib/gsap.js";
+import { ScrollTrigger } from "../lib/gsap.js";
 import NotificationBell from "./NotificationBell.jsx";
 import TopperLogo from "./TopperLogo.jsx";
-
-gsap.registerPlugin(useGSAP);
 
 export function SiteHeader() {
   const { user } = useAuth();
@@ -75,8 +72,6 @@ function PublicSiteHeader() {
         </button>
         <nav aria-label="Main navigation" className={`ed-nav ed-app-nav ${menuOpen ? "ed-nav-open" : ""}`}>
           <Link href="/search">Explore</Link>
-          <Link href="/subjects">Subjects</Link>
-          <Link href="/pyqs">Question papers</Link>
           <Link href="/login">Student sign in</Link>
           <Link className="ed-nav-cta" href="/register">
             Join for free
@@ -194,7 +189,7 @@ export function SiteFooter() {
             <span className="ed-footer-free">FREE TO LEARN · FREE TO SHARE</span>
           </div>
           <div className="ed-footer-links">
-            <div><h2>Explore</h2><Link href="/search">Knowledge vault</Link><Link href="/subjects">Study subjects</Link><Link href="/pyqs">Previous-year papers</Link><Link href="/syllabus">Syllabus explorer</Link></div>
+            <div><h2>Explore</h2><Link href="/search">Knowledge vault</Link><Link href="/syllabus">Syllabus explorer</Link></div>
             <div><h2>Join in</h2><Link href="/register">Share your notes</Link><Link href="/login">Student sign in</Link><Link href="/library">Your library</Link></div>
             <div><h2>About</h2><Link href="/#about">Our story</Link><Link href="/#verification">Thoughtful verification</Link><Link href="/terms">Terms &amp; conditions</Link></div>
             <div><h2>Privacy</h2><Link href="/advertising">Privacy &amp; advertising details</Link>{validContactEmail ? <a href={`mailto:${validContactEmail}`}>Contact Topper</a> : <span className="ed-footer-coming-soon">Contact details coming soon</span>}</div>
@@ -219,24 +214,15 @@ export function SiteFooter() {
 }
 
 export default function ApplicationLayout({ children }) {
-  const rootRef = useRef(null);
   const pathname = usePathname();
 
-  useGSAP(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const main = rootRef.current?.querySelector(".ed-app-content");
-    if (!main) return;
-    gsap.fromTo(
-      main,
-      { autoAlpha: 0, y: 14 },
-      { autoAlpha: 1, y: 0, duration: 0.48, ease: "power3.out" },
-    );
+  useEffect(() => {
     const refreshFrame = requestAnimationFrame(() => ScrollTrigger.refresh());
     return () => cancelAnimationFrame(refreshFrame);
-  }, { scope: rootRef, dependencies: [pathname], revertOnUpdate: true });
+  }, [pathname]);
 
   return (
-    <div className="ed-site ed-app-site" id="top" ref={rootRef}>
+    <div className="ed-site ed-app-site" id="top">
       <SiteHeader />
       <div className="ed-app-content">{children}</div>
       <SiteFooter />

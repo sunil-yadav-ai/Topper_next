@@ -15,8 +15,6 @@ function PublicPageShell({ breadcrumbs = [], children }) {
         </Link>
         <nav aria-label="Main navigation" className="flex flex-wrap gap-4 text-sm font-semibold">
           <Link className="hover:underline" href="/">Home</Link>
-          <Link className="hover:underline" href="/subjects">Subjects</Link>
-          <Link className="hover:underline" href="/pyqs">Question papers</Link>
           <Link className="hover:underline" href="/search">Explore</Link>
         </nav>
       </header>
@@ -53,7 +51,6 @@ function LoadingOrError({ loading, error }) {
         <>
           <h1 className="text-2xl font-black">This page is unavailable</h1>
           <p className="mt-2 text-slate-600">{error}</p>
-          <Link className="mt-4 inline-block font-bold text-indigo-700 hover:underline" href="/subjects">Browse available subjects</Link>
         </>
       )}
     </section>

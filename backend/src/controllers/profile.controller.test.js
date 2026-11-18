@@ -5,8 +5,101 @@ import Note from "../models/Note.js";
 import Pyq from "../models/Pyq.js";
 import {
   getPublicProfile,
+  searchPublicProfiles,
   updateOwnProfile,
 } from "./profile.controller.js";
+
+test("public profile search matches names and usernames without exposing private fields", async () => {
+  const originalFind = User.find;
+  const matchingUser = {
+    _id: { toString: () => "user-id" },
+    fullName: "Ada Student",
+    username: "ada.student",
+    avatarUrl: "https://images.example.com/ada.png",
+    email: "private@example.com",
+    password: "must-not-appear",
+  };
+  let filter;
+  User.find = (query) => {
+    filter = query;
+    return {
+      select(fields) {
+        assert.equal(fields, "fullName username avatarUrl");
+        return this;
+      },
+      sort(value) {
+        assert.deepEqual(value, { fullName: 1 });
+        return this;
+      },
+      limit(value) {
+        assert.equal(value, 20);
+        return this;
+      },
+      async lean() {
+        return [matchingUser];
+      },
+    };
+  };
+
+  const response = { json(payload) { this.payload = payload; } };
+  try {
+    await searchPublicProfiles({ query: { q: "ada" } }, response);
+    assert.deepEqual(filter.$or.map((entry) => Object.keys(entry)[0]), ["fullName", "username"]);
+    assert.equal(filter.$or[0].fullName.source, "ada");
+    assert.equal(filter.$or[0].fullName.flags, "i");
+    assert.equal(response.payload.users[0].fullName, "Ada Student");
+    assert.equal(response.payload.users[0].username, "ada.student");
+    assert.equal(JSON.stringify(response.payload).includes(matchingUser.email), false);
+    assert.equal(JSON.stringify(response.payload).includes(matchingUser.password), false);
+  } finally {
+    User.find = originalFind;
+  }
+});
+
+test("public profile search escapes regex input and accepts @usernames", async () => {
+  const originalFind = User.find;
+  let filter;
+  User.find = (query) => {
+    filter = query;
+    return {
+      select() { return this; },
+      sort() { return this; },
+      limit() { return this; },
+      async lean() { return []; },
+    };
+  };
+
+  try {
+    await searchPublicProfiles({ query: { q: "@ada.*" } }, { json() {} });
+    assert.equal(filter.$or[0].fullName.source, "ada\\.\\*");
+    assert.equal(filter.$or[1].username.source, "ada\\.\\*");
+  } finally {
+    User.find = originalFind;
+  }
+});
+
+test("public profile search skips short queries and rejects oversized or repeated queries", async () => {
+  const originalFind = User.find;
+  User.find = () => {
+    throw new Error("A query should not run.");
+  };
+  const response = { json(payload) { this.payload = payload; } };
+
+  try {
+    await searchPublicProfiles({ query: { q: "a" } }, response);
+    assert.deepEqual(response.payload.users, []);
+    await assert.rejects(
+      searchPublicProfiles({ query: { q: "a".repeat(51) } }, response),
+      { statusCode: 400 },
+    );
+    await assert.rejects(
+      searchPublicProfiles({ query: { q: ["ada", "student"] } }, response),
+      { statusCode: 400 },
+    );
+  } finally {
+    User.find = originalFind;
+  }
+});
 
 test("public profile exposes only safe fields and published contributions", async () => {
   const originalFindOne = User.findOne;
@@ -82,6 +175,55 @@ test("public profile exposes only safe fields and published contributions", asyn
     assert.equal(serialized.includes(user.password), false);
   } finally {
     User.findOne = originalFindOne;
+    Note.find = originalNoteFind;
+    Note.countDocuments = originalNoteCount;
+    Pyq.find = originalPyqFind;
+    Pyq.countDocuments = originalPyqCount;
+  }
+});
+
+test("public profiles can be opened by uploader ID", async () => {
+  const originalFindOne = User.findOne;
+  const originalFindById = User.findById;
+  const originalNoteFind = Note.find;
+  const originalNoteCount = Note.countDocuments;
+  const originalPyqFind = Pyq.find;
+  const originalPyqCount = Pyq.countDocuments;
+  const userId = "507f1f77bcf86cd799439011";
+  const user = {
+    _id: userId,
+    fullName: "Ada Student",
+    username: "ada.student",
+    createdAt: new Date("2024-01-01T00:00:00Z"),
+    role: "user",
+  };
+  const makeQuery = (result) => ({
+    select() { return this; },
+    sort() { return this; },
+    limit() { return this; },
+    async lean() { return result; },
+  });
+  User.findOne = (filter) => {
+    assert.deepEqual(filter, { username: userId });
+    return { select: async () => null };
+  };
+  User.findById = (id) => {
+    assert.equal(id, userId);
+    return { select: async () => user };
+  };
+  Note.find = () => makeQuery([]);
+  Note.countDocuments = async () => 0;
+  Pyq.find = () => makeQuery([]);
+  Pyq.countDocuments = async () => 0;
+
+  const response = { json(payload) { this.payload = payload; } };
+  try {
+    await getPublicProfile({ params: { username: userId } }, response);
+    assert.equal(response.payload.profile.id, userId);
+    assert.equal(response.payload.profile.username, user.username);
+  } finally {
+    User.findOne = originalFindOne;
+    User.findById = originalFindById;
     Note.find = originalNoteFind;
     Note.countDocuments = originalNoteCount;
     Pyq.find = originalPyqFind;

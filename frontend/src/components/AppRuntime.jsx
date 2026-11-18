@@ -1,14 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ApiPageLoader, PageLoader } from "./PageState.jsx";
+import {
+  ApiPageLoader,
+  PageLoader,
+  RouteNavigationLoader,
+} from "./PageState.jsx";
+import CursorRibbon from "./CursorRibbon.jsx";
 import {
   hasCompletedMainIntro,
   markMainIntroCompleted,
+  resetMainIntroForDocument,
 } from "../lib/loading-session.js";
 
 export default function AppRuntime() {
   const [introPhase, setIntroPhase] = useState("booting");
+  const [routeNavigationPending, setRouteNavigationPending] = useState(false);
   const completeIntroAnimation = useCallback(() => {
     setIntroPhase((phase) => (phase === "entering" ? "exiting" : phase));
   }, []);
@@ -18,6 +25,7 @@ export default function AppRuntime() {
   }, []);
 
   useEffect(() => {
+    resetMainIntroForDocument();
     setIntroPhase(hasCompletedMainIntro() ? "done" : "entering");
   }, []);
 
@@ -51,7 +59,9 @@ export default function AppRuntime() {
 
   return (
     <>
-      <ApiPageLoader />
+      <CursorRibbon />
+      <RouteNavigationLoader onPendingChange={setRouteNavigationPending} />
+      <ApiPageLoader suppressed={routeNavigationPending} />
       {introPhase !== "booting" && introPhase !== "done" && (
         <PageLoader
           exiting={introPhase === "exiting"}
