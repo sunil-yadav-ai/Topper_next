@@ -26,9 +26,9 @@ export async function recordLearningActivity(request, response) {
 export async function getLearningActivity(request, response) {
   const username = normalizeUsername(request.params.username);
   if (!usernamePattern.test(username)) badRequest("Username is invalid.");
-  const user = await User.findOne({ username }).select("_id createdAt role");
-  if (!user || !user._id.equals(request.user._id)) {
-    const error = new Error("This student's learning activity is private.");
+  const user = await User.findOne({ username, role: "user" }).select("_id createdAt");
+  if (!user) {
+    const error = new Error("Student profile not found.");
     error.statusCode = 404;
     throw error;
   }

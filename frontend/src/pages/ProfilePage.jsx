@@ -37,7 +37,7 @@ function errorMessage(error) {
 
 export default function ProfilePage({ username = "" }) {
   const router = useRouter();
-  const { user, updateUser } = useAuth();
+  const { user, loading: authLoading, updateUser } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -52,13 +52,20 @@ export default function ProfilePage({ username = "" }) {
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState("");
   const [activityRetry, setActivityRetry] = useState(0);
+  const [followBusy, setFollowBusy] = useState(false);
+  const [followError, setFollowError] = useState("");
+  const [followListType, setFollowListType] = useState("");
+  const [followList, setFollowList] = useState([]);
+  const [followListPagination, setFollowListPagination] = useState(null);
+  const [followListPage, setFollowListPage] = useState(1);
+  const [followListRetry, setFollowListRetry] = useState(0);
+  const [followListLoading, setFollowListLoading] = useState(false);
+  const [followListError, setFollowListError] = useState("");
   const avatarInputRef = useRef(null);
   const coverInputRef = useRef(null);
   const rootRef = useRef(null);
   const isOwner = Boolean(user && data?.profile.id === user.id);
-  const isActivityOwner = Boolean(
-    isOwner && user?.role === "user" && data?.profile.role === "user",
-  );
+  const canViewActivity = data?.profile.role === "user";
   const visibleContributions = useMemo(
     () => data?.contributions.filter((item) => activeTab === "all" || item.type === activeTab) ?? [],
     [activeTab, data],
@@ -87,7 +94,7 @@ export default function ProfilePage({ username = "" }) {
   }, [username]);
 
   useEffect(() => {
-    if (!isActivityOwner || !data?.profile.username) {
+    if (!canViewActivity || !data?.profile.username) {
       setActivity(null);
       setActivityError("");
       setActivityLoading(false);
@@ -110,7 +117,51 @@ export default function ProfilePage({ username = "" }) {
     return () => {
       active = false;
     };
-  }, [activityRetry, data?.profile.username, isActivityOwner]);
+  }, [activityRetry, canViewActivity, data?.profile.username]);
+
+  useEffect(() => {
+    if (!followListType || data?.profile.role !== "user" || !data?.profile.username) {
+      return undefined;
+    }
+
+    let active = true;
+    setFollowListLoading(true);
+    setFollowListError("");
+    api.get(
+      `/profiles/${encodeURIComponent(data.profile.username)}/${followListType}`,
+      { params: { page: followListPage, limit: 25 } },
+    )
+      .then(({ data: result }) => {
+        if (active) {
+          setFollowList(result.users);
+          setFollowListPagination(result.pagination);
+        }
+      })
+      .catch((requestError) => {
+        if (active) setFollowListError(errorMessage(requestError));
+      })
+      .finally(() => {
+        if (active) setFollowListLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [
+    data?.profile.username,
+    followListPage,
+    followListRetry,
+    followListType,
+    data?.profile.role,
+  ]);
+
+  useEffect(() => {
+    if (!followListType) return undefined;
+    function closeOnEscape(event) {
+      if (event.key === "Escape") setFollowListType("");
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [followListType]);
 
   usePageMotion(rootRef, {
     dependencies: [data?.profile.username, activeTab, visibleContributions.length],
@@ -134,6 +185,44 @@ export default function ProfilePage({ username = "" }) {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function toggleFollow() {
+    if (followBusy) return;
+    const endpoint = `/profiles/${encodeURIComponent(profile.username)}/follow`;
+    setFollowBusy(true);
+    setFollowError("");
+    try {
+      const { data: result } = profile.isFollowing
+        ? await api.delete(endpoint)
+        : await api.post(endpoint);
+      setData((current) => ({
+        ...current,
+        profile: {
+          ...current.profile,
+          isFollowing: result.isFollowing,
+          followerCount: result.followerCount,
+        },
+      }));
+    } catch (requestError) {
+      setFollowError(errorMessage(requestError));
+    } finally {
+      setFollowBusy(false);
+    }
+  }
+
+  function changeFollowingCount(isFollowing) {
+    if (!isOwner) return;
+    setData((current) => current && ({
+      ...current,
+      profile: {
+        ...current.profile,
+        followingCount: Math.max(
+          0,
+          (current.profile.followingCount ?? 0) + (isFollowing ? 1 : -1),
+        ),
+      },
+    }));
   }
 
   function chooseProfileImage(event, imageType) {
@@ -305,8 +394,27 @@ export default function ProfilePage({ username = "" }) {
                     <span aria-hidden="true">{editing ? "×" : "↗"}</span>
                   </button>
                 )}
+                {!isOwner && profile.role === "user" && user?.role === "user" && (
+                  <button
+                    aria-pressed={Boolean(profile.isFollowing)}
+                    className={`ed-profile-button${profile.isFollowing ? " ed-profile-button-following" : " ed-profile-button-dark"}`}
+                    disabled={followBusy}
+                    onClick={toggleFollow}
+                    type="button"
+                  >
+                    {followBusy ? "Please wait…" : profile.isFollowing ? "Following" : "Follow"}
+                    <span aria-hidden="true">{profile.isFollowing ? "✓" : "+"}</span>
+                  </button>
+                )}
+                {!isOwner && profile.role === "user" && !authLoading && !user && (
+                  <Link className="ed-profile-button ed-profile-button-dark" href="/login">
+                    Sign in to follow <span aria-hidden="true">↗</span>
+                  </Link>
+                )}
               </div>
             </div>
+
+            {followError && <p className="mt-3 text-right text-sm text-rose-700" role="alert">{followError}</p>}
 
             {imageMessage && (
               <p
@@ -331,6 +439,37 @@ export default function ProfilePage({ username = "" }) {
                     <span><i aria-hidden="true">▤</i>{[profile.course, profile.department].filter(Boolean).join(" · ")}</span>
                   )}
                   <span><i aria-hidden="true">✳</i>Joined {formatDate(profile.joinedAt, { month: "long", year: "numeric" })}</span>
+                  {profile.role === "user" ? (
+                    <div className="ed-profile-social-links">
+                      <button
+                        aria-label={`View ${profile.followerCount ?? 0} followers`}
+                        className="ed-profile-social-link"
+                        onClick={() => {
+                          setFollowListPage(1);
+                          setFollowListType("followers");
+                        }}
+                        type="button"
+                      >
+                        <i aria-hidden="true">♧</i>{profile.followerCount ?? 0} followers
+                      </button>
+                      <button
+                        aria-label={`View ${profile.followingCount ?? 0} people you follow`}
+                        className="ed-profile-social-link"
+                        onClick={() => {
+                          setFollowListPage(1);
+                          setFollowListType("following");
+                        }}
+                        type="button"
+                      >
+                        <i aria-hidden="true">↗</i>{profile.followingCount ?? 0} following
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="ed-profile-social-links">
+                      <span><i aria-hidden="true">♧</i>{profile.followerCount ?? 0} followers</span>
+                      <span><i aria-hidden="true">↗</i>{profile.followingCount ?? 0} following</span>
+                    </div>
+                  )}
                 </div>
               </div>
               <div aria-label="Contribution statistics" className="ed-profile-stats">
@@ -390,15 +529,16 @@ export default function ProfilePage({ username = "" }) {
           </div>
         </section>
 
-        <ProfilePeopleSearch />
+        <ProfilePeopleSearch onFollowChange={changeFollowingCount} />
 
-        <StudentActivityHeatmap
-          activity={activity}
-          error={activityError}
-          loading={isActivityOwner && activityLoading}
-          onRetry={() => setActivityRetry((current) => current + 1)}
-          privateView={!isActivityOwner}
-        />
+        {canViewActivity && (
+          <StudentActivityHeatmap
+            activity={activity}
+            error={activityError}
+            loading={activityLoading}
+            onRetry={() => setActivityRetry((current) => current + 1)}
+          />
+        )}
 
         <section className="ed-profile-contributions" data-motion-scroll>
           <div className="ed-profile-section-heading">
@@ -467,6 +607,108 @@ export default function ProfilePage({ username = "" }) {
           onSave={saveCroppedImage}
           saving={Boolean(savingImage)}
         />
+      )}
+      {followListType && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setFollowListType("");
+          }}
+        >
+          <section
+            aria-labelledby="profile-follow-list-title"
+            aria-modal="true"
+            className="max-h-[min(80vh,42rem)] w-full max-w-lg overflow-hidden rounded-2xl border-2 border-[#171717] bg-[#fffdf7] shadow-[6px_6px_0_#171717]"
+            role="dialog"
+          >
+            <header className="flex items-center justify-between border-b border-stone-200 px-5 py-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-orange-800">Your community</p>
+                <h2 className="mt-1 text-xl font-black text-stone-900" id="profile-follow-list-title">
+                  {followListType === "followers" ? "Followers" : "Following"}
+                </h2>
+              </div>
+              <button
+                aria-label="Close list"
+                className="grid size-9 place-items-center rounded-lg border border-stone-300 bg-white text-xl font-bold text-stone-800 hover:bg-stone-100"
+                onClick={() => setFollowListType("")}
+                type="button"
+              >
+                ×
+              </button>
+            </header>
+            <div aria-busy={followListLoading} className="max-h-[55vh] min-h-32 overflow-y-auto p-4">
+              {followListLoading ? (
+                <p className="py-8 text-center text-sm text-stone-600" role="status">Loading students…</p>
+              ) : followListError ? (
+                <div className="py-6 text-center">
+                  <p className="text-sm text-rose-700" role="alert">{followListError}</p>
+                  <button
+                    className="mt-3 rounded-lg border border-stone-800 px-3 py-2 text-sm font-bold"
+                    onClick={() => setFollowListRetry((current) => current + 1)}
+                    type="button"
+                  >
+                    Try again
+                  </button>
+                </div>
+              ) : followList.length ? (
+                <ul className="grid gap-2">
+                  {followList.map((person) => (
+                    <li key={person.id}>
+                      <Link
+                        className="flex items-center gap-3 rounded-xl border border-stone-200 bg-white p-3 transition hover:border-orange-400 hover:bg-orange-50"
+                        href={`/profile/${encodeURIComponent(person.username)}`}
+                        onClick={() => setFollowListType("")}
+                      >
+                        <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-violet-600 font-black text-white">
+                          {person.avatarUrl ? (
+                            <img alt="" className="h-full w-full object-cover" src={person.avatarUrl} />
+                          ) : (
+                            person.fullName.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("")
+                          )}
+                        </span>
+                        <span className="grid min-w-0">
+                          <strong className="truncate text-sm text-stone-900">{person.fullName}</strong>
+                          <span className="truncate text-xs text-stone-500">@{person.username}</span>
+                        </span>
+                        <span aria-hidden="true" className="ml-auto font-black text-orange-800">↗</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="py-8 text-center text-sm text-stone-600">
+                  {followListType === "followers"
+                    ? "You don't have any followers yet."
+                    : "You're not following anyone yet."}
+                </p>
+              )}
+            </div>
+            {followListPagination?.pages > 1 && (
+              <footer className="flex items-center justify-between border-t border-stone-200 px-4 py-3">
+                <button
+                  className="rounded-lg border border-stone-300 px-3 py-2 text-sm font-bold disabled:opacity-40"
+                  disabled={followListPage <= 1 || followListLoading}
+                  onClick={() => setFollowListPage((current) => current - 1)}
+                  type="button"
+                >
+                  Previous
+                </button>
+                <span className="text-xs font-semibold text-stone-600">
+                  Page {followListPagination.page} of {followListPagination.pages}
+                </span>
+                <button
+                  className="rounded-lg border border-stone-300 px-3 py-2 text-sm font-bold disabled:opacity-40"
+                  disabled={followListPage >= followListPagination.pages || followListLoading}
+                  onClick={() => setFollowListPage((current) => current + 1)}
+                  type="button"
+                >
+                  Next
+                </button>
+              </footer>
+            )}
+          </section>
+        </div>
       )}
     </main>
     </>

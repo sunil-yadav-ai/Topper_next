@@ -3,6 +3,7 @@ import test from "node:test";
 import User from "../models/User.js";
 import Note from "../models/Note.js";
 import Pyq from "../models/Pyq.js";
+import Follow from "../models/Follow.js";
 import {
   getPublicProfile,
   searchPublicProfiles,
@@ -78,6 +79,53 @@ test("public profile search escapes regex input and accepts @usernames", async (
   }
 });
 
+test("authenticated profile search includes follow state for student results", async () => {
+  const originalFind = User.find;
+  const originalFollowFind = Follow.find;
+  const matchingUsers = [
+    {
+      _id: { toString: () => "target-1" },
+      fullName: "Ada Student",
+      username: "ada.student",
+    },
+    {
+      _id: { toString: () => "Adam Student" },
+      fullName: "Adam Student",
+      username: "adam.student",
+    },
+  ];
+  User.find = (filter) => {
+    assert.equal(filter.role, "user");
+    return {
+      select() { return this; },
+      sort() { return this; },
+      limit() { return this; },
+      async lean() { return matchingUsers; },
+    };
+  };
+  Follow.find = (filter) => {
+    assert.equal(filter.follower, "viewer-id");
+    assert.deepEqual(filter.followedUser.$in, matchingUsers.map(({ _id }) => _id));
+    return {
+      select() { return this; },
+      async lean() { return [{ followedUser: "target-1" }]; },
+    };
+  };
+  const response = { json(payload) { this.payload = payload; } };
+
+  try {
+    await searchPublicProfiles(
+      { query: { q: "ada" }, user: { _id: "viewer-id", role: "user" } },
+      response,
+    );
+    assert.equal(response.payload.users[0].isFollowing, true);
+    assert.equal(response.payload.users[1].isFollowing, false);
+  } finally {
+    User.find = originalFind;
+    Follow.find = originalFollowFind;
+  }
+});
+
 test("public profile search skips short queries and rejects oversized or repeated queries", async () => {
   const originalFind = User.find;
   User.find = () => {
@@ -107,6 +155,8 @@ test("public profile exposes only safe fields and published contributions", asyn
   const originalNoteCount = Note.countDocuments;
   const originalPyqFind = Pyq.find;
   const originalPyqCount = Pyq.countDocuments;
+  const originalFollowCount = Follow.countDocuments;
+  const originalFollowExists = Follow.exists;
   const user = {
     _id: { toString: () => "user-id" },
     fullName: "Ada Student",
@@ -162,13 +212,34 @@ test("public profile exposes only safe fields and published contributions", asyn
     assert.deepEqual(filter, pyqFilter);
     return 0;
   };
+  Follow.countDocuments = async (filter) => {
+    if (filter.followedUser) {
+      assert.deepEqual(filter, { followedUser: user._id });
+      return 4;
+    }
+    assert.deepEqual(filter, { follower: user._id });
+    return 2;
+  };
+  Follow.exists = async (filter) => {
+    assert.deepEqual(filter, { follower: "viewer-id", followedUser: user._id });
+    return { _id: "follow-edge" };
+  };
 
   const response = { json(payload) { this.payload = payload; } };
   try {
-    await getPublicProfile({ params: { username: "Ada.Student" } }, response);
+    await getPublicProfile(
+      {
+        params: { username: "Ada.Student" },
+        user: { _id: "viewer-id", role: "user" },
+      },
+      response,
+    );
     const serialized = JSON.stringify(response.payload);
     assert.equal(response.payload.profile.username, "ada.student");
     assert.equal(response.payload.profile.role, "user");
+    assert.equal(response.payload.profile.followerCount, 4);
+    assert.equal(response.payload.profile.followingCount, 2);
+    assert.equal(response.payload.profile.isFollowing, true);
     assert.equal(response.payload.profile.avatarUrl, user.avatarUrl);
     assert.equal(response.payload.profile.coverImage, user.coverImage);
     assert.equal(serialized.includes(user.email), false);
@@ -179,6 +250,8 @@ test("public profile exposes only safe fields and published contributions", asyn
     Note.countDocuments = originalNoteCount;
     Pyq.find = originalPyqFind;
     Pyq.countDocuments = originalPyqCount;
+    Follow.countDocuments = originalFollowCount;
+    Follow.exists = originalFollowExists;
   }
 });
 
@@ -189,6 +262,7 @@ test("public profiles can be opened by uploader ID", async () => {
   const originalNoteCount = Note.countDocuments;
   const originalPyqFind = Pyq.find;
   const originalPyqCount = Pyq.countDocuments;
+  const originalFollowCount = Follow.countDocuments;
   const userId = "507f1f77bcf86cd799439011";
   const user = {
     _id: userId,
@@ -215,12 +289,14 @@ test("public profiles can be opened by uploader ID", async () => {
   Note.countDocuments = async () => 0;
   Pyq.find = () => makeQuery([]);
   Pyq.countDocuments = async () => 0;
+  Follow.countDocuments = async () => 0;
 
   const response = { json(payload) { this.payload = payload; } };
   try {
     await getPublicProfile({ params: { username: userId } }, response);
     assert.equal(response.payload.profile.id, userId);
     assert.equal(response.payload.profile.username, user.username);
+    assert.equal(response.payload.profile.followingCount, 0);
   } finally {
     User.findOne = originalFindOne;
     User.findById = originalFindById;
@@ -228,6 +304,7 @@ test("public profiles can be opened by uploader ID", async () => {
     Note.countDocuments = originalNoteCount;
     Pyq.find = originalPyqFind;
     Pyq.countDocuments = originalPyqCount;
+    Follow.countDocuments = originalFollowCount;
   }
 });
 

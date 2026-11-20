@@ -27,8 +27,6 @@ learningActivityRouter.post(
 );
 learningActivityRouter.get(
   "/profiles/:username",
-  requireAuth,
-  requireRole("user"),
   getLearningActivity,
 );
 

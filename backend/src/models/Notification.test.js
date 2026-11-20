@@ -14,6 +14,17 @@ test("notifications store supported events, ownership, and read state", () => {
   });
   assert.equal(notification.readAt, null);
   assert.equal(notification.validateSync(), undefined);
+  assert.equal(
+    new Notification({
+      recipient: new mongoose.Types.ObjectId(),
+      type: "followed_note_uploaded",
+      title: "New notes",
+      message: "A student you follow uploaded notes.",
+      dedupeKey: "followed-note:123",
+      link: "/resources/note/123",
+    }).validateSync(),
+    undefined,
+  );
   assert.ok(
     new Notification({
       recipient: new mongoose.Types.ObjectId(),

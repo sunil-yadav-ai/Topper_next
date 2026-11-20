@@ -30,18 +30,19 @@ function dateLabel(dateKey) {
 
 function activityDescription(day) {
   if (day.status === "untracked") return "No record — before this student joined";
-  if (day.status === "today") return "Today — no resources opened yet";
-  if (day.status === "absent") return "Absent — no resources opened";
-  return `Present — ${day.totalResourcesOpened} ${day.totalResourcesOpened === 1 ? "resource" : "resources"} opened`;
+  if (day.notesOpened > 0) {
+    return `Present — ${day.notesOpened} ${day.notesOpened === 1 ? "note" : "notes"} opened`;
+  }
+  if (day.status === "today") return "Today — no notes opened yet";
+  if (day.pyqsOpened > 0) {
+    return `No notes opened — ${day.pyqsOpened} ${day.pyqsOpened === 1 ? "PYQ" : "PYQs"} opened`;
+  }
+  return "Absent — no notes opened";
 }
 
-function getIntensity(day) {
+function getNotesActivityClass(day) {
   if (day.status === "untracked") return "untracked";
-  if (day.totalResourcesOpened <= 0) return "level-0";
-  if (day.totalResourcesOpened === 1) return "level-1";
-  if (day.totalResourcesOpened <= 3) return "level-2";
-  if (day.totalResourcesOpened <= 5) return "level-3";
-  return "level-4";
+  return day.notesOpened > 0 ? "level-1" : "level-0";
 }
 
 export default function StudentActivityHeatmap({
@@ -49,7 +50,6 @@ export default function StudentActivityHeatmap({
   loading,
   error,
   onRetry,
-  privateView = false,
 }) {
   const rootRef = useRef(null);
   const [selectedDate, setSelectedDate] = useState("");
@@ -91,34 +91,18 @@ export default function StudentActivityHeatmap({
   const handleEnter = contextSafe((event) => animateCell(event, true));
   const handleLeave = contextSafe((event) => animateCell(event, false));
 
-  if (privateView) {
-    return (
-      <section aria-label="Learning activity" className="ed-activity-section" data-motion-scroll>
-        <div className="ed-activity-heading">
-          <div>
-            <p className="ed-profile-kicker"><span aria-hidden="true">✳</span> YOUR STUDY RHYTHM</p>
-            <h2>Learning activity</h2>
-          </div>
-        </div>
-        <div className="ed-activity-empty">
-          Learning activity details are private and visible only to the student.
-        </div>
-      </section>
-    );
-  }
-
   if (loading) {
     return (
       <section aria-busy="true" className="ed-activity-section" data-motion-scroll>
         <div className="ed-activity-heading">
           <div>
-            <p className="ed-profile-kicker"><span aria-hidden="true">✳</span> YOUR STUDY RHYTHM</p>
+            <p className="ed-profile-kicker"><span aria-hidden="true">✳</span> PUBLIC STUDY RHYTHM</p>
             <h2>Learning activity</h2>
           </div>
         </div>
         <div className="ed-activity-loading">
           <CalendarDays aria-hidden="true" size={18} />
-          Loading your learning activity…
+          Loading learning activity…
         </div>
       </section>
     );
@@ -129,12 +113,12 @@ export default function StudentActivityHeatmap({
       <section className="ed-activity-section" data-motion-scroll>
         <div className="ed-activity-heading">
           <div>
-            <p className="ed-profile-kicker"><span aria-hidden="true">✳</span> YOUR STUDY RHYTHM</p>
+            <p className="ed-profile-kicker"><span aria-hidden="true">✳</span> PUBLIC STUDY RHYTHM</p>
             <h2>Learning activity</h2>
           </div>
         </div>
         <div className="ed-activity-empty">
-          <p role={error ? "alert" : "status"}>{error || "Your learning activity will appear here after you open a study resource."}</p>
+          <p role={error ? "alert" : "status"}>{error || "Learning activity will appear here after this student opens a study resource."}</p>
           {error && <button className="ed-activity-retry" onClick={onRetry} type="button">Try again</button>}
         </div>
       </section>
@@ -161,10 +145,10 @@ export default function StudentActivityHeatmap({
   });
 
   return (
-    <section aria-label="Your learning activity" className="ed-activity-section" data-motion-scroll ref={rootRef}>
+    <section aria-label="Student learning activity" className="ed-activity-section" data-motion-scroll ref={rootRef}>
       <div className="ed-activity-heading">
         <div>
-          <p className="ed-profile-kicker"><span aria-hidden="true">✳</span> YOUR STUDY RHYTHM</p>
+          <p className="ed-profile-kicker"><span aria-hidden="true">✳</span> PUBLIC STUDY RHYTHM</p>
           <h2>Learning activity</h2>
         </div>
         <span className="ed-activity-timezone">Last 12 months · Asia/Kolkata</span>
@@ -222,7 +206,7 @@ export default function StudentActivityHeatmap({
                           : `${day.notesOpened} notes, ${day.pyqsOpened} PYQs, ${day.totalResourcesOpened} total.`
                       }`}
                       aria-pressed={selectedDate === day.date}
-                      className={`ed-activity-cell ${getIntensity(day)}${selectedDate === day.date ? " is-selected" : ""}`}
+                      className={`ed-activity-cell ${getNotesActivityClass(day)}${selectedDate === day.date ? " is-selected" : ""}`}
                       key={day.date}
                       onBlur={handleLeave}
                       onClick={() => setSelectedDate((current) => current === day.date ? "" : day.date)}
@@ -252,18 +236,17 @@ export default function StudentActivityHeatmap({
             )}
           </div>
         )}
-        <div aria-label="Activity intensity legend" className="ed-activity-legend">
+        <div aria-label="Notes activity legend" className="ed-activity-legend">
           <span>Before joining</span>
           <i aria-hidden="true" className="ed-activity-cell untracked" />
-          <span>Less</span>
-          {["level-0", "level-1", "level-2", "level-3", "level-4"].map((level) => (
-            <i aria-hidden="true" className={`ed-activity-cell ${level}`} key={level} />
-          ))}
-          <span>More</span>
+          <span>No notes</span>
+          <i aria-hidden="true" className="ed-activity-cell level-0" />
+          <span>Notes opened</span>
+          <i aria-hidden="true" className="ed-activity-cell level-1" />
         </div>
       </div>
       <p className="ed-activity-footnote">
-        No activity is marked absent only after that day ends. Today remains in progress until midnight in India.
+        This activity is public on the profile. Green days show when notes were opened; today updates until midnight in India.
       </p>
     </section>
   );

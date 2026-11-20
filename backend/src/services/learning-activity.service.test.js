@@ -226,13 +226,15 @@ test("private resources cannot be recorded by another student", async () => {
   }
 });
 
-test("heatmap derives past absences but keeps today incomplete and dates before joining untracked", async () => {
-  const originalFind = DailyLearningActivity.find;
-  DailyLearningActivity.find = () => ({
-    sort() {
-      return this;
-    },
-    lean: async () => [
+test("heatmap derives activity from successful opens, keeps today incomplete, and leaves pre-join dates untracked", async () => {
+  const originalAggregate = LearningActivity.aggregate;
+  const studentId = new mongoose.Types.ObjectId();
+  LearningActivity.aggregate = async (pipeline) => {
+    assert.deepEqual(pipeline[0].$match, {
+      userId: studentId,
+      activityDate: { $gte: "2026-11-05", $lte: "2026-11-09" },
+    });
+    return [
       {
         activityDate: "2026-11-06",
         totalResourcesOpened: 2,
@@ -245,11 +247,11 @@ test("heatmap derives past absences but keeps today incomplete and dates before 
         notesOpened: 0,
         pyqsOpened: 1,
       },
-    ],
-  });
+    ];
+  };
   try {
     const result = await getStudentActivitySummary({
-      studentId: new mongoose.Types.ObjectId(),
+      studentId,
       joinedAt: new Date("2026-11-05T05:00:00.000Z"),
       now: new Date("2026-11-09T08:00:00.000Z"),
     });
@@ -270,6 +272,6 @@ test("heatmap derives past absences but keeps today incomplete and dates before 
     assert.equal(result.summary.longestStreak, 1);
     assert.equal(result.months.length, 12);
   } finally {
-    DailyLearningActivity.find = originalFind;
+    LearningActivity.aggregate = originalAggregate;
   }
 });

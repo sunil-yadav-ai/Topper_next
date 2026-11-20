@@ -6,6 +6,7 @@ const modelNames = [
   "Activity",
   "Contribution",
   "Bookmark",
+  "Follow",
   "DailyLearningActivity",
   "GeminiUsage",
   "LearningActivity",

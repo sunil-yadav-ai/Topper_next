@@ -124,14 +124,41 @@ export function LoginPage({ admin = false }) {
 
 export function RegisterPage() {
   const request = useFormRequest();
+  const verificationRequest = useFormRequest();
+  const resendRequest = useFormRequest();
+  const [verificationEmail, setVerificationEmail] = useState("");
+  const [emailVerified, setEmailVerified] = useState(false);
 
   async function handleSubmit(event) {
     event.preventDefault();
     const values = Object.fromEntries(new FormData(event.currentTarget));
-    await request.submit(async () => {
+    const result = await request.submit(async () => {
       const { data } = await api.post("/auth/register", {
         ...values,
         semester: Number(values.semester),
+      });
+      return data;
+    });
+    if (result) setVerificationEmail(String(values.email).trim().toLowerCase());
+  }
+
+  async function handleVerify(event) {
+    event.preventDefault();
+    const { code } = Object.fromEntries(new FormData(event.currentTarget));
+    const result = await verificationRequest.submit(async () => {
+      const { data } = await api.post("/auth/verify-email", {
+        email: verificationEmail,
+        code,
+      });
+      return data;
+    });
+    if (result) setEmailVerified(true);
+  }
+
+  async function handleResend() {
+    await resendRequest.submit(async () => {
+      const { data } = await api.post("/auth/resend-verification", {
+        email: verificationEmail,
       });
       return data;
     });
@@ -140,23 +167,79 @@ export function RegisterPage() {
   return (
     <AuthLayout
       eyebrow="Join the community"
-      title="Create your student account"
-      description="Tell us a little about yourself to get started."
+      title={emailVerified ? "Email verified" : verificationEmail ? "Verify your email" : "Create your student account"}
+      description={
+        emailVerified
+          ? "Your student account is ready. Sign in to continue."
+          : verificationEmail
+            ? `Enter the 6-digit code sent to ${verificationEmail}.`
+            : "Tell us a little about yourself to get started."
+      }
     >
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        <FormAlert message={request.message} success={request.success} />
-        <FormField label="Full name" name="fullName" autoComplete="name" placeholder="Your full name" minLength={2} maxLength={100} required />
-        <FormField label="Email" name="email" type="email" autoComplete="email" placeholder="you@college.edu" required />
-        <FormField label="Password" name="password" type="password" autoComplete="new-password" placeholder="At least 8 characters" minLength={8} required />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField label="College" name="college" autoComplete="organization" required />
-          <FormField label="University" name="university" required />
-          <FormField label="Department" name="department" required />
-          <FormField label="Batch" name="batch" placeholder="e.g. 2024–2028" required />
-          <FormField label="Semester" name="semester" type="number" min={1} max={12} required />
+      {emailVerified ? (
+        <div className="space-y-4">
+          <FormAlert message={verificationRequest.message} success={verificationRequest.success} />
+          <Link
+            className="inline-flex w-full justify-center rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700"
+            href="/login"
+          >
+            Continue to sign in
+          </Link>
         </div>
-        <SubmitButton loading={request.loading}>Create account</SubmitButton>
-      </form>
+      ) : verificationEmail ? (
+        <div className="space-y-4">
+          <FormAlert message={verificationRequest.message} success={verificationRequest.success} />
+          <form className="space-y-4" onSubmit={handleVerify}>
+            <FormField
+              label="6-digit verification code"
+              name="code"
+              type="text"
+              autoComplete="one-time-code"
+              inputMode="numeric"
+              pattern="[0-9]{6}"
+              maxLength={6}
+              required
+            />
+            <SubmitButton loading={verificationRequest.loading}>Verify email</SubmitButton>
+          </form>
+          <FormAlert message={resendRequest.message} success={resendRequest.success} />
+          <button
+            className="w-full text-center text-sm font-semibold text-brand hover:underline"
+            disabled={resendRequest.loading}
+            onClick={handleResend}
+            type="button"
+          >
+            {resendRequest.loading ? "Sending code…" : "Send a new code"}
+          </button>
+          <button
+            className="w-full text-center text-sm text-slate-600 hover:text-brand"
+            onClick={() => setVerificationEmail("")}
+            type="button"
+          >
+            Use a different email
+          </button>
+        </div>
+      ) : (
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          <FormAlert message={request.message} success={request.success} />
+          <FormField label="Full name" name="fullName" autoComplete="name" placeholder="Your full name" minLength={2} maxLength={100} required />
+          <FormField label="Email" name="email" type="email" autoComplete="email" placeholder="you@college.edu" required />
+          <FormField label="Password" name="password" type="password" autoComplete="new-password" placeholder="At least 8 characters" minLength={8} required />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField label="College" name="college" autoComplete="organization" required />
+            <FormField label="University" name="university" required />
+            <FormField label="Department" name="department" required />
+            <FormField label="Batch" name="batch" placeholder="e.g. 2024–2028" required />
+            <FormField label="Semester" name="semester" type="number" min={1} max={12} required />
+          </div>
+          <SubmitButton loading={request.loading}>Create account</SubmitButton>
+          <p className="text-center text-sm">
+            <Link className="font-semibold text-brand hover:underline" href="/resend-verification">
+              Need a new verification code?
+            </Link>
+          </p>
+        </form>
+      )}
       <p className="mt-5 text-center text-sm text-slate-600">
         Already have an account?{" "}
         <Link className="font-semibold text-brand hover:underline" href="/login">Sign in</Link>
@@ -277,7 +360,7 @@ export function VerifyEmailPage({ token = "" }) {
             </SubmitButton>
             <p className="text-center text-sm">
               <Link className="font-semibold text-brand hover:underline" href="/resend-verification">
-                Request a new verification link
+                Request a new verification code
               </Link>
             </p>
           </>
@@ -297,12 +380,38 @@ export function VerifyEmailPage({ token = "" }) {
 
 export function ResendVerificationPage() {
   const request = useFormRequest();
+  const verificationRequest = useFormRequest();
+  const [emailToVerify, setEmailToVerify] = useState("");
+  const [emailVerified, setEmailVerified] = useState(false);
 
   async function handleSubmit(event) {
     event.preventDefault();
     const { email } = Object.fromEntries(new FormData(event.currentTarget));
-    await request.submit(async () => {
+    const result = await request.submit(async () => {
       const { data } = await api.post("/auth/resend-verification", { email });
+      return data;
+    });
+    if (result) setEmailToVerify(String(email).trim().toLowerCase());
+  }
+
+  async function handleVerify(event) {
+    event.preventDefault();
+    const { code } = Object.fromEntries(new FormData(event.currentTarget));
+    const result = await verificationRequest.submit(async () => {
+      const { data } = await api.post("/auth/verify-email", {
+        email: emailToVerify,
+        code,
+      });
+      return data;
+    });
+    if (result) setEmailVerified(true);
+  }
+
+  async function handleResendCode() {
+    await request.submit(async () => {
+      const { data } = await api.post("/auth/resend-verification", {
+        email: emailToVerify,
+      });
       return data;
     });
   }
@@ -310,14 +419,66 @@ export function ResendVerificationPage() {
   return (
     <AuthLayout
       eyebrow="Email verification"
-      title="Resend verification email"
-      description="Enter the address you registered with and we’ll send a fresh link."
+      title={emailVerified ? "Email verified" : emailToVerify ? "Enter your verification code" : "Resend verification code"}
+      description={
+        emailVerified
+          ? "Your email is verified. You can now sign in."
+          : emailToVerify
+            ? `Enter the 6-digit code sent to ${emailToVerify}.`
+            : "Enter the address you registered with and we’ll send a fresh 6-digit code."
+      }
     >
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        <FormAlert message={request.message} success={request.success} />
-        <FormField label="Email" name="email" type="email" autoComplete="email" placeholder="you@college.edu" required />
-        <SubmitButton loading={request.loading}>Resend verification</SubmitButton>
-      </form>
+      {emailVerified ? (
+        <div className="space-y-4">
+          <FormAlert message={verificationRequest.message} success={verificationRequest.success} />
+          <Link
+            className="inline-flex w-full justify-center rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700"
+            href="/login"
+          >
+            Continue to sign in
+          </Link>
+        </div>
+      ) : emailToVerify ? (
+        <div className="space-y-4">
+          <FormAlert message={request.message} success={request.success} />
+          <FormAlert message={verificationRequest.message} success={verificationRequest.success} />
+          <form className="space-y-4" onSubmit={handleVerify}>
+            <FormField
+              label="6-digit verification code"
+              name="code"
+              type="text"
+              autoComplete="one-time-code"
+              inputMode="numeric"
+              pattern="[0-9]{6}"
+              maxLength={6}
+              required
+            />
+            <SubmitButton loading={verificationRequest.loading}>Verify email</SubmitButton>
+          </form>
+          <button
+            className="w-full text-center text-sm font-semibold text-brand hover:underline"
+            disabled={request.loading}
+            onClick={handleResendCode}
+            type="button"
+          >
+            {request.loading ? "Sending code…" : "Send a new code"}
+          </button>
+          <button
+            className="w-full text-center text-sm font-semibold text-brand hover:underline"
+            disabled={request.loading}
+            onClick={() => setEmailToVerify("")}
+            type="button"
+          >
+            Use a different email
+          </button>
+        </div>
+      ) : (
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          <FormAlert message={request.message} success={request.success} />
+          <FormField label="Email" name="email" type="email" autoComplete="email" placeholder="you@college.edu" required />
+          <SubmitButton loading={request.loading}>Send verification code</SubmitButton>
+        </form>
+      )}
     </AuthLayout>
   );
 }

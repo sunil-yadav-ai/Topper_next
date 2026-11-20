@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Note from "../models/Note.js";
 import Pyq from "../models/Pyq.js";
+import Follow from "../models/Follow.js";
 import User from "../models/User.js";
 import {
   normalizeUsername,
@@ -100,16 +101,32 @@ export async function searchPublicProfiles(request, response) {
 
   const pattern = new RegExp(escapeRegex(query), "i");
   const users = await User.find({
+    role: "user",
     $or: [{ fullName: pattern }, { username: pattern }],
   })
     .select("fullName username avatarUrl")
     .sort({ fullName: 1 })
     .limit(20)
     .lean();
+  const followingIds = new Set();
+  if (request.user?.role === "user" && users.length) {
+    const follows = await Follow.find({
+      follower: request.user._id,
+      followedUser: { $in: users.map(({ _id }) => _id) },
+    })
+      .select("followedUser")
+      .lean();
+    for (const follow of follows) {
+      followingIds.add(String(follow.followedUser));
+    }
+  }
 
   response.json({
     status: "success",
-    users: users.map(publicProfileSearchResult),
+    users: users.map((user) => ({
+      ...publicProfileSearchResult(user),
+      isFollowing: followingIds.has(String(user._id)),
+    })),
   });
 }
 
@@ -145,7 +162,15 @@ export async function getPublicProfile(request, response) {
     publicationStatus: "published",
     visibility: { $in: ["public", null] },
   };
-  const [notes, pyqs, totalNotes, totalPyqs] = await Promise.all([
+  const [
+    notes,
+    pyqs,
+    totalNotes,
+    totalPyqs,
+    followerCount,
+    followingCount,
+    existingFollow,
+  ] = await Promise.all([
     Note.find(noteFilter).select("_id title subject semester createdAt")
       .sort({ createdAt: -1 })
       .limit(50)
@@ -156,13 +181,23 @@ export async function getPublicProfile(request, response) {
       .lean(),
     Note.countDocuments(noteFilter),
     Pyq.countDocuments(pyqFilter),
+    Follow.countDocuments({ followedUser: user._id }),
+    Follow.countDocuments({ follower: user._id }),
+    request.user?.role === "user" && String(user._id) !== String(request.user._id)
+      ? Follow.exists({ follower: request.user._id, followedUser: user._id })
+      : null,
   ]);
   const contributions = [...notes.map(publicNote), ...pyqs.map(publicPyq)]
     .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt));
 
   response.json({
     status: "success",
-    profile: publicProfile(user),
+    profile: {
+      ...publicProfile(user),
+      followerCount,
+      followingCount,
+      isFollowing: Boolean(existingFollow),
+    },
     stats: {
       totalUploadedNotes: totalNotes,
       totalUploadedPyqs: totalPyqs,

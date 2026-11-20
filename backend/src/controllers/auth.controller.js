@@ -2,10 +2,12 @@ import User from "../models/User.js";
 import { sendActionEmail } from "../services/email.service.js";
 import {
   authCookieName,
+  createEmailVerificationCode,
   createActionToken,
   createActionUrl,
   getAuthCookieOptions,
   getClearCookieOptions,
+  hashEmailVerificationCode,
   hashActionToken,
   legacyAuthCookiePath,
   signAuthToken,
@@ -14,6 +16,8 @@ import {
 import { createUniqueUsername } from "../services/username.service.js";
 
 const actionTokenLifetimeMs = 60 * 60 * 1000;
+const verificationCodeLifetimeMs = 10 * 60 * 1000;
+const maxVerificationCodeAttempts = 5;
 
 function badRequest(message) {
   const error = new Error(message);
@@ -49,16 +53,15 @@ function requireActionToken(token) {
   }
 }
 
-async function deliverVerificationEmail(user, token) {
-  const verificationUrl = createActionUrl("/verify-email", token);
-  await sendActionEmail({
+async function deliverVerificationCode(user, code, sendEmail = sendActionEmail) {
+  await sendEmail({
     to: user.email,
-    subject: "Verify your StudyShare email",
-    text: `Hi ${user.fullName},\n\nVerify your email address to activate your account:\n${verificationUrl}\n\nThis link expires in one hour.`,
+    subject: "Your StudyShare verification code",
+    text: `Hi ${user.fullName},\n\nYour email verification code is ${code}.\n\nEnter this code to activate your account. It expires in 10 minutes.`,
   });
 }
 
-export async function registerStudent(request, response) {
+export async function registerStudent(request, response, dependencies = {}) {
   const {
     fullName,
     email,
@@ -89,8 +92,13 @@ export async function registerStudent(request, response) {
     throw badRequest("Password must be at least 8 characters and no more than 72 UTF-8 bytes.");
   }
 
+  if (await User.exists({ email: normalizeEmail(email) })) {
+    throw badRequest("An account already exists for this email. Sign in or request a new verification code.");
+  }
+
   const username = await createUniqueUsername(User, fullName);
-  await User.create({
+  const verificationCode = createEmailVerificationCode();
+  const user = await User.create({
     fullName,
     email: normalizeEmail(email),
     username,
@@ -101,11 +109,17 @@ export async function registerStudent(request, response) {
     batch,
     semester: Number(semester),
     role: "user",
+    emailVerified: false,
+    emailVerificationRequired: true,
+    emailVerificationTokenHash: hashEmailVerificationCode(email, verificationCode),
+    emailVerificationExpiresAt: new Date(Date.now() + verificationCodeLifetimeMs),
+    emailVerificationAttempts: 0,
   });
+  await deliverVerificationCode(user, verificationCode, dependencies.sendEmail);
 
   response.status(201).json({
     status: "success",
-    message: "Account created successfully. You can sign in now.",
+    message: "We sent a 6-digit verification code to your email. It expires in 10 minutes.",
   });
 }
 
@@ -125,12 +139,15 @@ async function authenticate(request, response, requiredRole) {
   const loginField = identifier.includes("@") ? "email" : "username";
   const user = await User.findOne({
     [loginField]: escapedExact(identifier),
-  }).select("+password +authVersion");
+  }).select("+password +authVersion +emailVerificationRequired");
   if (!user || !(await user.comparePassword(password))) {
     throw unauthorized();
   }
   if (requiredRole && user.role !== requiredRole) {
     throw unauthorized();
+  }
+  if (user.emailVerificationRequired && !user.emailVerified) {
+    throw unauthorized("Verify your email with the code we sent before signing in.");
   }
   if (user.isSuspended) {
     throw unauthorized("This account is suspended. Contact an administrator.");
@@ -170,34 +187,87 @@ export function logout(request, response) {
 }
 
 export async function verifyEmail(request, response) {
-  const { token } = request.body ?? {};
-  requireActionToken(token);
-
-  const tokenHash = hashActionToken(token);
+  const { token, email: submittedEmail, code } = request.body ?? {};
+  const email = normalizeEmail(submittedEmail);
   const now = new Date();
-  const user = await User.findOneAndUpdate(
-    {
-      emailVerificationTokenHash: tokenHash,
-      emailVerificationExpiresAt: { $gt: now },
-    },
-    {
-      $set: { emailVerified: true },
-      $unset: {
-        emailVerificationTokenHash: "",
-        emailVerificationExpiresAt: "",
-      },
-    },
-    { new: true },
-  );
+  let user;
+  let tokenHash;
 
-  if (!user) {
+  if (token) {
+    requireActionToken(token);
+    tokenHash = hashActionToken(token);
+    user = await User.findOneAndUpdate(
+      {
+        emailVerificationTokenHash: tokenHash,
+        emailVerificationExpiresAt: { $gt: now },
+      },
+      {
+        $set: { emailVerified: true, emailVerificationRequired: false },
+        $unset: {
+          emailVerificationTokenHash: "",
+          emailVerificationExpiresAt: "",
+          emailVerificationAttempts: "",
+        },
+      },
+      { new: true },
+    );
+  } else {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !/^\d{6}$/.test(code ?? "")) {
+      throw badRequest("Enter a valid email address and 6-digit verification code.");
+    }
+
+    user = await User.findOneAndUpdate(
+      {
+        email,
+        emailVerified: false,
+        emailVerificationTokenHash: hashEmailVerificationCode(email, code),
+        emailVerificationExpiresAt: { $gt: now },
+        emailVerificationAttempts: { $lt: maxVerificationCodeAttempts },
+      },
+      {
+        $set: { emailVerified: true, emailVerificationRequired: false },
+        $unset: {
+          emailVerificationTokenHash: "",
+          emailVerificationExpiresAt: "",
+          emailVerificationAttempts: "",
+        },
+      },
+      { new: true },
+    );
+
+    if (!user) {
+      const pendingUser = await User.findOne({
+        email,
+        emailVerified: false,
+      }).select("+emailVerificationExpiresAt +emailVerificationAttempts");
+      if (pendingUser?.emailVerificationExpiresAt <= now) {
+        throw badRequest("This verification code has expired. Request a new code and try again.");
+      }
+      if ((pendingUser?.emailVerificationAttempts ?? 0) >= maxVerificationCodeAttempts) {
+        throw badRequest("Too many incorrect codes. Request a new verification code.");
+      }
+      if (pendingUser) {
+        await User.updateOne(
+          {
+            _id: pendingUser._id,
+            emailVerified: false,
+            emailVerificationAttempts: { $lt: maxVerificationCodeAttempts },
+          },
+          { $inc: { emailVerificationAttempts: 1 } },
+        );
+      }
+      throw badRequest("The verification code is invalid or has expired.");
+    }
+  }
+
+  if (token && !user) {
     const expiredUser = await User.findOne({
       emailVerificationTokenHash: tokenHash,
     }).select("+emailVerificationExpiresAt");
 
     if (expiredUser?.emailVerificationExpiresAt <= now) {
       throw badRequest(
-        "This verification link has expired. Request a new verification email and try again.",
+        "This verification link has expired. Request a new verification code and try again.",
       );
     }
 
@@ -210,7 +280,13 @@ export async function verifyEmail(request, response) {
   });
 }
 
-async function restoreVerificationToken(user, tokenHash, previousTokenHash, previousExpiresAt) {
+async function restoreVerificationToken(
+  user,
+  tokenHash,
+  previousTokenHash,
+  previousExpiresAt,
+  previousAttempts,
+) {
   const update = { $set: {}, $unset: {} };
 
   if (previousTokenHash) {
@@ -225,6 +301,12 @@ async function restoreVerificationToken(user, tokenHash, previousTokenHash, prev
     update.$unset.emailVerificationExpiresAt = "";
   }
 
+  if (previousAttempts) {
+    update.$set.emailVerificationAttempts = previousAttempts;
+  } else {
+    update.$unset.emailVerificationAttempts = "";
+  }
+
   if (Object.keys(update.$set).length === 0) delete update.$set;
   if (Object.keys(update.$unset).length === 0) delete update.$unset;
 
@@ -234,28 +316,30 @@ async function restoreVerificationToken(user, tokenHash, previousTokenHash, prev
   );
 }
 
-export async function resendVerificationEmail(request, response) {
+export async function resendVerificationEmail(request, response, dependencies = {}) {
   const email = normalizeEmail(request.body?.email);
   if (!email) {
     throw badRequest("Email is required.");
   }
 
   const user = await User.findOne({ email }).select(
-    "+emailVerificationTokenHash +emailVerificationExpiresAt",
+    "+emailVerificationTokenHash +emailVerificationExpiresAt +emailVerificationAttempts",
   );
 
   if (user && !user.emailVerified) {
-    const token = createActionToken();
-    const tokenHash = hashActionToken(token);
+    const verificationCode = createEmailVerificationCode();
+    const tokenHash = hashEmailVerificationCode(email, verificationCode);
     const previousTokenHash = user.emailVerificationTokenHash;
     const previousExpiresAt = user.emailVerificationExpiresAt;
+    const previousAttempts = user.emailVerificationAttempts;
 
     user.emailVerificationTokenHash = tokenHash;
-    user.emailVerificationExpiresAt = new Date(Date.now() + actionTokenLifetimeMs);
+    user.emailVerificationExpiresAt = new Date(Date.now() + verificationCodeLifetimeMs);
+    user.emailVerificationAttempts = 0;
     await user.save();
 
     try {
-      await deliverVerificationEmail(user, token);
+      await deliverVerificationCode(user, verificationCode, dependencies.sendEmail);
     } catch (deliveryError) {
       try {
         await restoreVerificationToken(
@@ -263,6 +347,7 @@ export async function resendVerificationEmail(request, response) {
           tokenHash,
           previousTokenHash,
           previousExpiresAt,
+          previousAttempts,
         );
       } catch (restoreError) {
         throw new AggregateError(
@@ -276,7 +361,7 @@ export async function resendVerificationEmail(request, response) {
 
   response.json({
     status: "success",
-    message: "If an unverified account exists for that email, a verification link has been sent.",
+    message: "If an unverified account exists for that email, a verification code has been sent.",
   });
 }
 

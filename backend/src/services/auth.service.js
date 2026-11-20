@@ -1,14 +1,24 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomInt } from "node:crypto";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
 
 export const authCookieName = "studyshare_token";
 export const authCookiePath = "/api";
 export const legacyAuthCookiePath = "/api/auth";
-export const authTokenLifetimeMs = 24 * 60 * 60 * 1000;
+export const authTokenLifetimeMs = 30 * 24 * 60 * 60 * 1000;
 
 export function hashActionToken(token) {
   return createHash("sha256").update(token).digest("hex");
+}
+
+export function createEmailVerificationCode() {
+  return String(randomInt(0, 1_000_000)).padStart(6, "0");
+}
+
+export function hashEmailVerificationCode(email, code) {
+  return createHmac("sha256", getJwtSecret())
+    .update(`${email.trim().toLowerCase()}:${code}`)
+    .digest("hex");
 }
 
 export function createActionToken() {
@@ -29,7 +39,7 @@ export function signAuthToken(user) {
   return jwt.sign(
     { ver: user.authVersion },
     getJwtSecret(),
-    { subject: user.id, expiresIn: "24h", algorithm: "HS256" },
+    { subject: user.id, expiresIn: "30d", algorithm: "HS256" },
   );
 }
 

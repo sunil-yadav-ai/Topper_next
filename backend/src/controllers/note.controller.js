@@ -21,6 +21,7 @@ import { renderPdfFirstPagePreview } from "../services/note-preview.service.js";
 import { decryptOcrResult } from "../services/note-ocr.service.js";
 import { decryptJson } from "../services/encrypted-json.service.js";
 import { createNotification } from "../services/notification.service.js";
+import { notifyFollowersAboutNewNote } from "../services/follow-notification.service.js";
 import { sendResourceUploadEmail } from "../services/email-notification.service.js";
 import { assertNoteSubjectRelevance } from "../services/note-relevance.service.js";
 
@@ -213,12 +214,21 @@ async function createNoteSubmission({
       link: "/library",
       dedupeKey: `note-uploaded:${note._id}`,
     });
+    if (!revisionOf) {
+      await notifyFollowersAboutNewNote({
+        uploaderId: uploadedBy,
+        uploaderName: uploader.fullName,
+        noteId: note._id,
+        noteTitle: note.title,
+      });
+    }
     await NoteOcrJob.create({ note: note._id });
     await NoteVerificationJob.create({ note: note._id });
   } catch (error) {
     if (note) {
       await Promise.all([
         Notification.deleteOne({ dedupeKey: `note-uploaded:${note._id}` }),
+        Notification.deleteMany({ dedupeKey: `followed-note:${note._id}` }),
         NoteOcrJob.deleteOne({ note: note._id }),
         NoteVerificationJob.deleteOne({ note: note._id }),
         Note.deleteOne({ _id: note._id }),

@@ -219,6 +219,7 @@ export default function NoteBookReader({ resourceId }) {
   const [format, setFormat] = useState("");
   const [pdf, setPdf] = useState(null);
   const [imageUrl, setImageUrl] = useState("");
+  const [readyImageResourceId, setReadyImageResourceId] = useState("");
   const [pageCount, setPageCount] = useState(0);
   const [pageIndex, setPageIndex] = useState(0);
   const [pageWidth, setPageWidth] = useState(360);
@@ -235,6 +236,7 @@ export default function NoteBookReader({ resourceId }) {
   const recordResourceOpen = useCallback(async () => {
     if (user?.role !== "user" || recordOpenRef.current) return;
     recordOpenRef.current = true;
+    if (!activityOpenIdRef.current) activityOpenIdRef.current = crypto.randomUUID();
     setActivityError("");
     try {
       await api.post("/learning-activity/open", {
@@ -247,6 +249,10 @@ export default function NoteBookReader({ resourceId }) {
       setActivityError(messageFrom(requestError));
     }
   }, [resourceId, user?.role]);
+
+  useEffect(() => {
+    if (readyImageResourceId === resourceId) void recordResourceOpen();
+  }, [readyImageResourceId, recordResourceOpen, resourceId]);
 
   useEffect(() => {
     const AudioContextConstructor = window.AudioContext;
@@ -322,6 +328,7 @@ export default function NoteBookReader({ resourceId }) {
     setError("");
     setPdf(null);
     setImageUrl("");
+    setReadyImageResourceId("");
     setPageCount(0);
     setPageIndex(0);
 
@@ -566,7 +573,7 @@ export default function NoteBookReader({ resourceId }) {
                     ) : (
                       <ImageNotePage
                         onError={handleImageError}
-                        onReady={recordResourceOpen}
+                        onReady={() => setReadyImageResourceId(resourceId)}
                         src={imageUrl}
                         title={title}
                         zoom={zoom}

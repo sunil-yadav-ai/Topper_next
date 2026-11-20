@@ -9,11 +9,13 @@ const [authController, User, authService] = await Promise.all([
   import("../services/auth.service.js"),
 ]);
 const { requireAuth } = await import("../middleware/auth.middleware.js");
+const { hashEmailVerificationCode } = authService;
 
-test("registers a default user and ignores a submitted admin role", async () => {
+test("registers a pending student and emails a hashed, expiring verification code", async () => {
   const originalCreate = User.create;
   const originalExists = User.exists;
   let createdUser;
+  const sentEmails = [];
   User.create = async (attributes) => {
     createdUser = attributes;
     return attributes;
@@ -47,16 +49,141 @@ test("registers a default user and ignores a submitted admin role", async () => 
         },
       },
       response,
+      { sendEmail: async (message) => sentEmails.push(message) },
     );
 
     assert.equal(response.statusCode, 201);
     assert.equal(createdUser.email, "ada@example.com");
     assert.equal(createdUser.role, "user");
-    assert.equal("emailVerificationTokenHash" in createdUser, false);
-    assert.match(response.payload.message, /sign in now/);
+    assert.equal(createdUser.emailVerified, false);
+    assert.equal(createdUser.emailVerificationRequired, true);
+    assert.match(createdUser.emailVerificationTokenHash, /^[a-f0-9]{64}$/);
+    assert.ok(createdUser.emailVerificationExpiresAt > new Date());
+    assert.equal(createdUser.emailVerificationAttempts, 0);
+    assert.equal(sentEmails.length, 1);
+    const code = sentEmails[0].text.match(/code is (\d{6})/)[1];
+    assert.equal(
+      createdUser.emailVerificationTokenHash,
+      hashEmailVerificationCode("ada@example.com", code),
+    );
+    assert.match(response.payload.message, /6-digit verification code/);
   } finally {
     User.create = originalCreate;
     User.exists = originalExists;
+  }
+});
+
+test("verifies the email OTP and clears pending verification state", async () => {
+  const originalFindOneAndUpdate = User.findOneAndUpdate;
+  let filter;
+  let update;
+  User.findOneAndUpdate = async (query, changes) => {
+    filter = query;
+    update = changes;
+    return { id: "student-otp" };
+  };
+  const response = { json(payload) { this.payload = payload; } };
+
+  try {
+    await authController.verifyEmail(
+      { body: { email: " ADA@EXAMPLE.COM ", code: "004201" } },
+      response,
+    );
+    assert.equal(filter.email, "ada@example.com");
+    assert.equal(
+      filter.emailVerificationTokenHash,
+      hashEmailVerificationCode("ada@example.com", "004201"),
+    );
+    assert.equal(update.$set.emailVerified, true);
+    assert.equal(update.$set.emailVerificationRequired, false);
+    assert.ok("emailVerificationTokenHash" in update.$unset);
+    assert.match(response.payload.message, /Email verified/);
+  } finally {
+    User.findOneAndUpdate = originalFindOneAndUpdate;
+  }
+});
+
+test("counts incorrect OTP attempts and rejects invalid codes", async () => {
+  const originals = {
+    findOneAndUpdate: User.findOneAndUpdate,
+    findOne: User.findOne,
+    updateOne: User.updateOne,
+  };
+  const pendingUser = {
+    _id: "pending-student",
+    emailVerificationExpiresAt: new Date(Date.now() + 60_000),
+    emailVerificationAttempts: 2,
+  };
+  let attemptUpdate;
+  User.findOneAndUpdate = async () => null;
+  User.findOne = () => ({
+    select: async () => pendingUser,
+  });
+  User.updateOne = async (filter, update) => {
+    attemptUpdate = { filter, update };
+  };
+
+  try {
+    await assert.rejects(
+      authController.verifyEmail(
+        { body: { email: "ada@example.com", code: "000000" } },
+        { json() {} },
+      ),
+      { statusCode: 400, message: /invalid or has expired/ },
+    );
+    assert.deepEqual(attemptUpdate.filter, {
+      _id: "pending-student",
+      emailVerified: false,
+      emailVerificationAttempts: { $lt: 5 },
+    });
+    assert.deepEqual(attemptUpdate.update, { $inc: { emailVerificationAttempts: 1 } });
+  } finally {
+    User.findOneAndUpdate = originals.findOneAndUpdate;
+    User.findOne = originals.findOne;
+    User.updateOne = originals.updateOne;
+  }
+});
+
+test("resends an email code and resets the verification attempt counter", async () => {
+  const originalFindOne = User.findOne;
+  const sentEmails = [];
+  const user = {
+    email: "ada@example.com",
+    fullName: "Ada Student",
+    emailVerified: false,
+    emailVerificationTokenHash: "old-hash",
+    emailVerificationExpiresAt: new Date(Date.now() - 1_000),
+    emailVerificationAttempts: 4,
+    async save() {},
+  };
+  User.findOne = () => ({
+    select: async (fields) => {
+      assert.match(fields, /\+emailVerificationAttempts/);
+      return user;
+    },
+  });
+  const response = { json(payload) { this.payload = payload; } };
+
+  try {
+    await authController.resendVerificationEmail(
+      { body: { email: " ADA@EXAMPLE.COM " } },
+      response,
+      { sendEmail: async (message) => sentEmails.push(message) },
+    );
+    const code = sentEmails[0].text.match(/code is (\d{6})/)[1];
+    assert.equal(user.emailVerificationAttempts, 0);
+    assert.notEqual(
+      user.emailVerificationTokenHash,
+      "old-hash",
+    );
+    assert.equal(
+      user.emailVerificationTokenHash,
+      hashEmailVerificationCode(user.email, code),
+    );
+    assert.ok(user.emailVerificationExpiresAt > new Date());
+    assert.match(response.payload.message, /verification code has been sent/);
+  } finally {
+    User.findOne = originalFindOne;
   }
 });
 
@@ -144,7 +271,7 @@ test("logs in an existing user by case-insensitive username using bcrypt verific
   User.findOne = (filter) => {
     assert.deepEqual(filter, { username: /^STUDENT456$/i });
     return { select: async (fields) => {
-      assert.equal(fields, "+password +authVersion");
+      assert.equal(fields, "+password +authVersion +emailVerificationRequired");
       return user;
     } };
   };
@@ -167,6 +294,29 @@ test("logs in an existing user by case-insensitive username using bcrypt verific
     assert.equal(response.payload.user.id, "student-456");
     assert.equal(response.cookies.length, 1);
     assert.ok(authService.verifyAuthToken(response.cookies[0].value));
+  } finally {
+    User.findOne = originalFindOne;
+  }
+});
+
+test("blocks sign-in for a registration awaiting email verification", async () => {
+  const originalFindOne = User.findOne;
+  User.findOne = () => ({
+    select: async () => ({
+      role: "user",
+      emailVerified: false,
+      emailVerificationRequired: true,
+      isSuspended: false,
+      comparePassword: async () => true,
+    }),
+  });
+  try {
+    await assert.rejects(
+      authController.loginStudent({
+        body: { email: "student@example.com", password: "secure-password" },
+      }, {}),
+      { statusCode: 401, message: /Verify your email/ },
+    );
   } finally {
     User.findOne = originalFindOne;
   }

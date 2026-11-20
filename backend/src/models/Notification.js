@@ -20,6 +20,7 @@ const notificationSchema = new mongoose.Schema(
         "mistake_resolved",
         "points_awarded",
         "announcement",
+        "followed_note_uploaded",
       ],
       required: true,
     },

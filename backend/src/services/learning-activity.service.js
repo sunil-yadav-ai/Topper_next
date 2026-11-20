@@ -197,12 +197,36 @@ export async function getStudentActivitySummary({ studentId, joinedAt, now = new
   const windowStart = joinedDate > visibleStart ? joinedDate : visibleStart;
   const earliest = joinedDate < today ? joinedDate : today;
 
-  const records = await DailyLearningActivity.find({
-    userId: studentId,
-    activityDate: { $gte: earliest, $lte: today },
-  })
-    .sort({ activityDate: 1 })
-    .lean();
+  const records = await LearningActivity.aggregate([
+    {
+      $match: {
+        userId: studentId,
+        activityDate: { $gte: earliest, $lte: today },
+      },
+    },
+    {
+      $group: {
+        _id: "$activityDate",
+        totalResourcesOpened: { $sum: 1 },
+        notesOpened: {
+          $sum: { $cond: [{ $eq: ["$resourceType", "note"] }, 1, 0] },
+        },
+        pyqsOpened: {
+          $sum: { $cond: [{ $eq: ["$resourceType", "pyq"] }, 1, 0] },
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        activityDate: "$_id",
+        totalResourcesOpened: 1,
+        notesOpened: 1,
+        pyqsOpened: 1,
+      },
+    },
+    { $sort: { activityDate: 1 } },
+  ]);
   const byDate = new Map(records.map((record) => [record.activityDate, record]));
   const days = [];
   for (let date = visibleStart; date <= today; date = addCalendarDays(date, 1)) {
