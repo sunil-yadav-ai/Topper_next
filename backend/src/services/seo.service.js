@@ -367,10 +367,26 @@ export async function buildSitemapEntries() {
   const siteOrigin = getSiteOrigin();
   const entries = [
     { path: "/", lastmod: null },
+    { path: "/subjects", lastmod: null },
     { path: "/advertising", lastmod: null },
     { path: "/terms", lastmod: null },
   ];
   if (mongoose.connection.readyState !== 1) return entries;
+
+  const subjects = await getSubjectGroups();
+  for (const subject of subjects) {
+    entries.push({
+      path: `/subjects/${subject.slug}`,
+      lastmod: subject.updatedAt,
+    });
+    const subjectPage = await getSubjectPage(subject.slug);
+    for (const topic of subjectPage?.topics ?? []) {
+      entries.push({
+        path: `/subjects/${subject.slug}/topics/${topic.slug}`,
+        lastmod: topic.updatedAt,
+      });
+    }
+  }
 
   const remaining = Math.max(0, maxSitemapUrls - entries.length);
   const notes = await Note.find(publicNoteFilter)
@@ -383,6 +399,21 @@ export async function buildSitemapEntries() {
       path: resourcePath(note, "note"),
       lastmod: note.updatedAt ?? note.createdAt,
     });
+  }
+
+  if (entries.length < maxSitemapUrls) {
+    const pyqLimit = maxSitemapUrls - entries.length;
+    const pyqs = await Pyq.find(publicPyqFilter)
+      .select("_id title subject createdAt updatedAt")
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .limit(pyqLimit)
+      .lean();
+    for (const pyq of pyqs) {
+      entries.push({
+        path: resourcePath(pyq, "pyq"),
+        lastmod: pyq.updatedAt ?? pyq.createdAt,
+      });
+    }
   }
 
   return entries.map((entry) => ({

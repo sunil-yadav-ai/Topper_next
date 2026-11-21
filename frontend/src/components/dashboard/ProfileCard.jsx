@@ -31,7 +31,6 @@ export default function ProfileCard({ profile, onEdit }) {
         </button>
       </div>
       <dl className="relative mt-6 grid grid-cols-2 gap-x-4 gap-y-5 border-t border-indigo-100/80 pt-5 sm:grid-cols-4">
-        <ProfileDetail label="College" value={profile.college} />
         <ProfileDetail label="University" value={profile.university} />
         <ProfileDetail label="Department" value={profile.department} />
         <ProfileDetail label="Batch / semester" value={`${profile.batch} · Semester ${profile.semester}`} />

@@ -79,7 +79,6 @@ export default function RewardCenter() {
                       <span className="min-w-0 text-sm text-slate-700">
                         <span className="mr-2 font-bold text-brand">#{entry.rank}</span>
                         <span className="font-semibold">{entry.student}</span>
-                        {entry.college && <span className="block truncate pl-8 text-xs text-slate-500">{entry.college}</span>}
                       </span>
                       <span className="shrink-0 text-sm font-bold text-ink">{entry.points} pts</span>
                     </li>

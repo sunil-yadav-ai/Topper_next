@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import dns from "node:dns";
-import { resolve } from "node:dns/promises";
+import { performance } from "node:perf_hooks";
 
 import User from "../models/User.js";
 import { env } from "./env.js";
@@ -15,6 +15,11 @@ const databaseState = (globalThis[databaseStateKey] ??= {
   initialized: false,
   failureCount: 0,
   retryAt: 0,
+});
+const databaseMaintenanceKey = Symbol.for("topper.database.maintenance-state");
+const databaseMaintenance = (globalThis[databaseMaintenanceKey] ??= {
+  promise: null,
+  completed: false,
 });
 
 const baseRetryDelayMs = 5_000;
@@ -78,84 +83,6 @@ export function formatDatabaseError(error) {
   return details;
 }
 
-/**
- * Temporary DNS diagnostics for Next.js process.
- */
-async function diagnoseMongoDns(srvHostname) {
-  const shardHostname =
-    "ac-xdqtrkl-shard-00-00.nkwbumz.mongodb.net";
-
-  const clusterHostname = srvHostname.replace(
-    "_mongodb._tcp.",
-    "",
-  );
-
-  console.log("[DNS DEBUG] Process information:", {
-    servers: dns.getServers(),
-    pid: process.pid,
-    node: process.version,
-    platform: process.platform,
-  });
-
-  // TEST 1: MongoDB shard A-record
-  try {
-    const records = await resolve(shardHostname, "A");
-
-    console.log("[DNS DEBUG] Shard A-record SUCCESS:", records);
-  } catch (error) {
-    console.error("[DNS DEBUG] Shard A-record FAILED:", {
-      code: error.code,
-      message: error.message,
-      syscall: error.syscall,
-    });
-  }
-
-  // TEST 2: Generic SRV lookup
-  try {
-    const records = await resolve(srvHostname, "SRV");
-
-    console.log("[DNS DEBUG] Generic SRV SUCCESS:", {
-      recordCount: records.length,
-      records,
-    });
-  } catch (error) {
-    console.error("[DNS DEBUG] Generic SRV FAILED:", {
-      code: error.code,
-      message: error.message,
-      syscall: error.syscall,
-      hostname: error.hostname,
-    });
-  }
-
-  // TEST 3: TXT lookup
-  try {
-    const records = await resolve(clusterHostname, "TXT");
-
-    console.log("[DNS DEBUG] TXT SUCCESS:", {
-      recordCount: records.length,
-      records,
-    });
-  } catch (error) {
-    console.error("[DNS DEBUG] TXT FAILED:", {
-      code: error.code,
-      message: error.message,
-      syscall: error.syscall,
-    });
-  }
-
-  // TEST 4: Cluster hostname A-record
-  try {
-    const records = await resolve(clusterHostname, "A");
-
-    console.log("[DNS DEBUG] Cluster A-record SUCCESS:", records);
-  } catch (error) {
-    console.error("[DNS DEBUG] Cluster A-record FAILED:", {
-      code: error.code,
-      message: error.message,
-    });
-  }
-}
-
 async function initializeDatabase() {
   if (mongoose.connection.readyState === 2) {
     await mongoose.connection.asPromise();
@@ -171,18 +98,38 @@ async function initializeDatabase() {
       },
     );
 
-    if (srvHostname) {
-      await diagnoseMongoDns(srvHostname);
-    }
-
     console.info("[database] Starting mongoose.connect().");
 
-    await mongoose.connect(env.mongodbUri);
+    const startedAt = performance.now();
+    await mongoose.connect(env.mongodbUri, {
+      serverSelectionTimeoutMS: 5_000,
+      connectTimeoutMS: 5_000,
+      socketTimeoutMS: 45_000,
+      maxPoolSize: 10,
+      minPoolSize: 0,
+      maxConnecting: 2,
+    });
+    if (process.env.NODE_ENV !== "production") {
+      console.info(
+        `[database] Cold connection established in ${Math.round(performance.now() - startedAt)} ms.`,
+      );
+    }
   }
+}
 
+async function initializeDatabaseMaintenance() {
   await migrateResourcesToPublicViewing();
-
   await migrateResourceSearchIndexes();
+
+  await User.updateMany(
+    { college: { $exists: true } },
+    { $unset: { college: "" } },
+  );
+  await User.collection
+    .dropIndex("college_1")
+    .catch((error) => {
+      if (error?.codeName !== "IndexNotFound") throw error;
+    });
 
   const migration = await User.updateMany(
     { role: "student" },
@@ -203,16 +150,12 @@ async function initializeDatabase() {
     ],
   })
     .select("_id fullName")
+    .lean()
     .cursor();
 
   let migratedUsernames = 0;
-
   for await (const user of usersWithoutUsername) {
-    const username = await createUniqueUsername(
-      User,
-      user.fullName,
-    );
-
+    const username = await createUniqueUsername(User, user.fullName);
     await User.updateOne(
       { _id: user._id },
       { $set: { username } },
@@ -226,8 +169,30 @@ async function initializeDatabase() {
       `Created usernames for ${migratedUsernames} existing account(s).`,
     );
   }
+}
 
-  console.log("MongoDB connected.");
+export function runDatabaseMaintenance() {
+  if (databaseMaintenance.completed) return Promise.resolve();
+  if (databaseMaintenance.promise) return databaseMaintenance.promise;
+  const startedAt = performance.now();
+  const maintenance = initializeDatabaseMaintenance()
+    .then(() => {
+      databaseMaintenance.completed = true;
+      if (process.env.NODE_ENV !== "production") {
+        console.info(
+          `[database] Maintenance completed in ${Math.round(performance.now() - startedAt)} ms.`,
+        );
+      }
+    })
+    .catch((error) => {
+      console.error("[database] Non-blocking maintenance failed.", {
+        name: error?.name ?? "Error",
+        code: error?.code,
+      });
+      throw error;
+    });
+  databaseMaintenance.promise = maintenance;
+  return maintenance;
 }
 
 export function connectDatabase() {

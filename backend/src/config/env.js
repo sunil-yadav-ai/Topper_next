@@ -203,3 +203,31 @@ for (const [name, points] of Object.entries(env.rewardPoints)) {
     throw new Error(`Reward point setting ${name} must be a non-negative safe integer.`);
   }
 }
+
+if (
+  process.env.NODE_ENV === "production" &&
+  process.env.NEXT_PHASE !== "phase-production-build"
+) {
+  if (!env.jwtSecret || env.jwtSecret.length < 32) {
+    throw new Error("JWT_SECRET must contain at least 32 characters in production.");
+  }
+
+  if (/localhost|127\.0\.0\.1|\[::1\]/i.test(env.frontendUrl)) {
+    throw new Error("FRONTEND_URL must use the public HTTPS production origin.");
+  }
+
+  if (!/^https?:\/\//i.test(env.frontendUrl)) {
+    throw new Error("FRONTEND_URL must use HTTP or HTTPS.");
+  }
+
+  if (!/^(mongodb(?:\+srv)?):\/\//i.test(mongodbUri)) {
+    throw new Error("MONGODB_URI must be a valid MongoDB connection URI.");
+  }
+
+  if (env.corsOrigins.length === 0) {
+    throw new Error("CORS_ORIGIN must contain at least one allowed production origin.");
+  }
+  if (env.corsOrigins.some((origin) => /localhost|127\.0\.0\.1|\[::1\]/i.test(origin))) {
+    throw new Error("CORS_ORIGIN must not contain loopback hosts in production.");
+  }
+}

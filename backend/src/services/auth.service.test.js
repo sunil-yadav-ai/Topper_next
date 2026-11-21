@@ -11,6 +11,8 @@ const {
   hashActionToken,
   legacyAuthCookiePath,
   signAuthToken,
+  normalizeIndianMobile,
+  isValidIndianMobile,
   validatePassword,
   verifyAuthToken,
 } = await import("./auth.service.js");
@@ -65,4 +67,16 @@ test("enforces bcrypt's UTF-8 byte limit and secure cookie attributes", () => {
   assert.equal(cookie.path, "/api");
   assert.equal(cookie.maxAge, authTokenLifetimeMs);
   assert.equal(legacyAuthCookiePath, "/api/auth");
+});
+
+test("normalizes Indian mobile numbers and rejects invalid formats", () => {
+  assert.equal(normalizeIndianMobile("+91 98765-43210"), "9876543210");
+  assert.equal(normalizeIndianMobile("9876543210"), "9876543210");
+  assert.equal(normalizeIndianMobile("919876543210"), "9876543210");
+  assert.equal(isValidIndianMobile("+91 9876543210"), true);
+  assert.equal(isValidIndianMobile("9876543210"), true);
+  assert.equal(isValidIndianMobile("5876543210"), false);
+  assert.equal(isValidIndianMobile("987654321"), false);
+  assert.equal(isValidIndianMobile("0000000000"), false);
+  assert.equal(isValidIndianMobile("abc9876543210"), false);
 });

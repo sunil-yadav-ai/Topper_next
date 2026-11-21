@@ -2,6 +2,7 @@ import { dispatchApiRequest } from "../../backend/src/app.js";
 import {
   connectDatabase,
   formatDatabaseError,
+  runDatabaseMaintenance,
 } from "../../backend/src/config/database.js";
 import { startNoteOcrWorker } from "../../backend/src/services/note-ocr-worker.service.js";
 
@@ -35,6 +36,7 @@ function initializeBackend() {
       backendState.workerStarted = true;
       backendState.failureCount = 0;
       backendState.retryAt = 0;
+      void runDatabaseMaintenance().catch(() => {});
     })
     .catch((error) => {
       backendState.failureCount += 1;

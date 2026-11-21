@@ -29,6 +29,16 @@ const userSchema = new mongoose.Schema(
       maxlength: 254,
       match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Enter a valid email address."],
     },
+    phoneNumber: {
+      type: String,
+      trim: true,
+      maxlength: 10,
+      match: [/^[6-9]\d{9}$/, "Enter a valid Indian mobile number."],
+    },
+    phoneVerified: {
+      type: Boolean,
+      default: false,
+    },
     username: {
       type: String,
       required: true,
@@ -52,7 +62,6 @@ const userSchema = new mongoose.Schema(
       enum: ["user", "admin"],
       default: "user",
     },
-    college: { type: String, required: true, trim: true, maxlength: 120 },
     university: { type: String, required: true, trim: true, maxlength: 120 },
     department: { type: String, required: true, trim: true, maxlength: 120 },
     batch: { type: String, required: true, trim: true, maxlength: 30 },
@@ -127,11 +136,17 @@ userSchema.pre("save", async function hashPassword() {
 });
 
 userSchema.index({ university: 1 });
-userSchema.index({ college: 1 });
 userSchema.index({ batch: 1 });
 userSchema.index(
   { username: 1 },
   { unique: true, partialFilterExpression: { username: { $type: "string" } } },
+);
+userSchema.index(
+  { phoneNumber: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { phoneNumber: { $type: "string" } },
+  },
 );
 
 userSchema.methods.comparePassword = function comparePassword(password) {
@@ -147,7 +162,6 @@ userSchema.methods.toSafeObject = function toSafeObject() {
     bio: this.bio,
     course: this.course,
     role: this.role,
-    college: this.college,
     university: this.university,
     department: this.department,
     batch: this.batch,
@@ -155,6 +169,8 @@ userSchema.methods.toSafeObject = function toSafeObject() {
     avatarUrl: this.avatarUrl,
     coverImage: this.coverImage,
     emailVerified: this.emailVerified,
+    phoneNumber: this.phoneNumber,
+    phoneVerified: this.phoneVerified,
   };
 };
 

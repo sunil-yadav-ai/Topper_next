@@ -1,17 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import {
   ApiPageLoader,
   PageLoader,
   RouteNavigationLoader,
 } from "./PageState.jsx";
-import CursorRibbon from "./CursorRibbon.jsx";
 import {
   hasCompletedMainIntro,
   markMainIntroCompleted,
   resetMainIntroForDocument,
 } from "../lib/loading-session.js";
+
+const CursorRibbon = dynamic(() => import("./CursorRibbon.jsx"), {
+  ssr: false,
+});
 
 export default function AppRuntime() {
   const [introPhase, setIntroPhase] = useState("booting");

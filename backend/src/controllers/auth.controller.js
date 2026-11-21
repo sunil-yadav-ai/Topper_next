@@ -11,6 +11,8 @@ import {
   hashActionToken,
   legacyAuthCookiePath,
   signAuthToken,
+  normalizeIndianMobile,
+  isValidIndianMobile,
   validatePassword,
 } from "../services/auth.service.js";
 import { createUniqueUsername } from "../services/username.service.js";
@@ -65,8 +67,8 @@ export async function registerStudent(request, response, dependencies = {}) {
   const {
     fullName,
     email,
+    phoneNumber,
     password,
-    college,
     university,
     department,
     batch,
@@ -75,7 +77,6 @@ export async function registerStudent(request, response, dependencies = {}) {
 
   if (
     !isNonEmptyString(fullName) ||
-    !isNonEmptyString(college) ||
     !isNonEmptyString(university) ||
     !isNonEmptyString(department) ||
     !isNonEmptyString(batch) ||
@@ -88,22 +89,74 @@ export async function registerStudent(request, response, dependencies = {}) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeEmail(email))) {
     throw badRequest("Enter a valid email address.");
   }
+  if (!isValidIndianMobile(phoneNumber)) {
+    throw badRequest("Enter a valid 10-digit Indian mobile number or a number with +91.");
+  }
   if (!validatePassword(password)) {
     throw badRequest("Password must be at least 8 characters and no more than 72 UTF-8 bytes.");
   }
 
-  if (await User.exists({ email: normalizeEmail(email) })) {
-    throw badRequest("An account already exists for this email. Sign in or request a new verification code.");
+  const normalizedEmail = normalizeEmail(email);
+  const normalizedPhoneNumber = normalizeIndianMobile(phoneNumber);
+  const existingEmail = await User.exists({ email: normalizedEmail });
+  if (existingEmail) {
+    const pendingUser = await User.findOne({ email: normalizedEmail }).select(
+      "+emailVerificationRequired +emailVerificationTokenHash +emailVerificationExpiresAt +emailVerificationAttempts",
+    );
+    if (!pendingUser || pendingUser.emailVerified || !pendingUser.emailVerificationRequired) {
+      throw badRequest("An account already exists for this email. Sign in or request a new verification code.");
+    }
+
+    if (await User.exists({ phoneNumber: normalizedPhoneNumber })) {
+      const phoneOwner = await User.findOne({
+        phoneNumber: normalizedPhoneNumber,
+      }).select("_id email");
+      const pendingId = String(pendingUser._id ?? pendingUser.id);
+      const phoneOwnerId = String(phoneOwner?._id ?? phoneOwner?.id ?? "");
+      if (!phoneOwner || phoneOwnerId !== pendingId) {
+        throw badRequest("An account already exists for this mobile number.");
+      }
+    }
+
+    const verificationCode = createEmailVerificationCode();
+    pendingUser.fullName = fullName;
+    pendingUser.phoneNumber = normalizedPhoneNumber;
+    pendingUser.phoneVerified = false;
+    pendingUser.password = password;
+    pendingUser.university = university;
+    pendingUser.department = department;
+    pendingUser.batch = batch;
+    pendingUser.semester = Number(semester);
+    pendingUser.emailVerified = false;
+    pendingUser.emailVerificationRequired = true;
+    pendingUser.emailVerificationTokenHash =
+      hashEmailVerificationCode(normalizedEmail, verificationCode);
+    pendingUser.emailVerificationExpiresAt =
+      new Date(Date.now() + verificationCodeLifetimeMs);
+    pendingUser.emailVerificationAttempts = 0;
+    await pendingUser.save();
+    await deliverVerificationCode(pendingUser, verificationCode, dependencies.sendEmail);
+
+    response.status(201).json({
+      status: "success",
+      message: "We sent a fresh 6-digit verification code to your email. It expires in 10 minutes.",
+    });
+    return;
+  }
+
+  if (await User.exists({ phoneNumber: normalizedPhoneNumber })) {
+    throw badRequest("An account already exists for this mobile number.");
   }
 
   const username = await createUniqueUsername(User, fullName);
   const verificationCode = createEmailVerificationCode();
   const user = await User.create({
     fullName,
-    email: normalizeEmail(email),
+    email: normalizedEmail,
+    phoneNumber: normalizedPhoneNumber,
+    phoneVerified: false,
     username,
     password,
-    college,
     university,
     department,
     batch,
@@ -184,6 +237,13 @@ export function logout(request, response) {
     path: legacyAuthCookiePath,
   });
   response.json({ status: "success", message: "You have been signed out." });
+}
+
+async function reloadVerifiedAuthUser(user) {
+  if (user?.authVersion !== undefined) return user;
+  const userId = user?._id ?? user?.id;
+  if (!userId) return user;
+  return (await User.findById(userId).select("+authVersion")) ?? user;
 }
 
 export async function verifyEmail(request, response) {
@@ -274,9 +334,17 @@ export async function verifyEmail(request, response) {
     throw badRequest("This verification link is invalid or has already been used.");
   }
 
+  user = await reloadVerifiedAuthUser(user);
+
+  response.clearCookie(authCookieName, {
+    ...getClearCookieOptions(),
+    path: legacyAuthCookiePath,
+  });
+  response.cookie(authCookieName, signAuthToken(user), getAuthCookieOptions());
   response.json({
     status: "success",
-    message: "Email verified. You can now sign in.",
+    message: "Email verified. You are now signed in.",
+    user: typeof user.toSafeObject === "function" ? user.toSafeObject() : user,
   });
 }
 

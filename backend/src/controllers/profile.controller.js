@@ -56,7 +56,6 @@ function publicProfile(user) {
     fullName: user.fullName,
     username: user.username,
     bio: user.bio ?? "",
-    college: user.college,
     university: user.university,
     course: user.course ?? "",
     department: user.department,
@@ -139,7 +138,7 @@ export async function getPublicProfile(request, response) {
   }
 
   const profileFields =
-    "fullName username bio college university course department avatarUrl coverImage createdAt role";
+    "fullName username bio university course department avatarUrl coverImage createdAt role";
   let user = validUsername
     ? await User.findOne({ username }).select(profileFields)
     : null;
@@ -211,14 +210,14 @@ export async function updateOwnProfile(request, response) {
   const { removeAvatar, ...updates } = request.body ?? {};
   const avatarFile = request.file ?? request.files?.avatar?.[0];
   const coverFile = request.files?.cover?.[0];
-  const allowedFields = ["fullName", "username", "bio", "college", "course"];
+  const allowedFields = ["fullName", "username", "bio", "course"];
   const requestedFields = Object.keys(updates);
   if (
     (removeAvatar !== undefined && removeAvatar !== "true" && removeAvatar !== "false") ||
     requestedFields.some((field) => !allowedFields.includes(field)) ||
     (requestedFields.length === 0 && !avatarFile && !coverFile && removeAvatar !== "true")
   ) {
-    throw badRequest("Only name, username, bio, college, course, and profile photo may be updated.");
+    throw badRequest("Only name, username, bio, course, and profile photo may be updated.");
   }
 
   const user = await User.findById(request.user._id)
@@ -240,9 +239,6 @@ export async function updateOwnProfile(request, response) {
     }
     if (field === "fullName" && (normalized.length < 2 || normalized.length > 100)) {
       throw badRequest("Name must be between 2 and 100 characters.");
-    }
-    if (field === "college" && normalized.length > 120) {
-      throw badRequest("College must be at most 120 characters.");
     }
     if (field === "course" && normalized.length > 120) {
       throw badRequest("Course must be at most 120 characters.");

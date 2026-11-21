@@ -9,7 +9,6 @@ import StudentResourceAccess from "../models/StudentResourceAccess.js";
 
 const profileFields = [
   "fullName",
-  "college",
   "university",
   "department",
   "batch",

@@ -37,6 +37,8 @@ export function errorHandler(error, request, response, _next) {
     statusCode = 409;
     error.message = error.keyPattern?.email
       ? "An account with this email already exists."
+      : error.keyPattern?.phoneNumber
+        ? "An account with this mobile number already exists."
       : "A record with these values already exists.";
   } else if (error.name === "ValidationError") {
     statusCode = 400;

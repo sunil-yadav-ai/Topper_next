@@ -12,7 +12,6 @@ test("the API exposes robots.txt and a sitemap for public SEO crawlers", async (
   const robotsText = await robotsResponse.text();
   assert.match(robotsText, /Sitemap:/i);
   assert.match(robotsText, /Allow:/i);
-  assert.match(robotsText, /Disallow: \/search/i);
   assert.match(robotsText, /Disallow: \/library/i);
 
   const sitemapResponse = await request("/sitemap.xml");
@@ -20,8 +19,8 @@ test("the API exposes robots.txt and a sitemap for public SEO crawlers", async (
   const sitemapText = await sitemapResponse.text();
   assert.match(sitemapText, /<urlset/i);
   assert.match(sitemapText, /<loc>/i);
-  assert.doesNotMatch(sitemapText, /\/(?:pyqs|subjects|question-papers)(?:\/|<\/loc>)/i);
-  assert.doesNotMatch(sitemapText, /\/login|\/admin|\/library|\/search/i);
+  assert.doesNotMatch(sitemapText, /\/(?:pyqs|question-papers)(?:\/|<\/loc>)/i);
+  assert.doesNotMatch(sitemapText, /\/login|\/admin|\/library/i);
 });
 
 test("SEO resource routes return a real 404 for invalid resource IDs", async () => {

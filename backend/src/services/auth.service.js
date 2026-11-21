@@ -75,3 +75,17 @@ export function validatePassword(password) {
     Buffer.byteLength(password, "utf8") <= 72
   );
 }
+
+export function normalizeIndianMobile(value) {
+  if (typeof value !== "string") return "";
+  if (!/^[+\d\s()-]+$/.test(value)) return "";
+  const digits = value.replace(/\D/g, "");
+  if (digits.length === 12 && digits.startsWith("91")) {
+    return digits.slice(2);
+  }
+  return digits;
+}
+
+export function isValidIndianMobile(value) {
+  return /^[6-9]\d{9}$/.test(normalizeIndianMobile(value));
+}

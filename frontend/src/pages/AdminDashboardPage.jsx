@@ -458,7 +458,7 @@ function StudentManagementSection() {
               className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm sm:w-72"
               maxLength={120}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Name, email, university, college"
+              placeholder="Name, email, university"
               value={query}
             />
             <button className="rounded-xl bg-brand px-4 py-2 text-sm font-bold text-white" type="submit">Search</button>
@@ -475,7 +475,7 @@ function StudentManagementSection() {
                 <div>
                   <h3 className="font-bold text-ink">{student.fullName}</h3>
                   <p className="mt-0.5 text-sm text-slate-600">{student.email} · {student.emailVerified ? "Email verified" : "Email not verified"}</p>
-                  <p className="mt-1 text-xs text-slate-500">{student.university} · {student.college} · {student.department} · Batch {student.batch} · Semester {student.semester}</p>
+                  <p className="mt-1 text-xs text-slate-500">{student.university} · {student.department} · Batch {student.batch} · Semester {student.semester}</p>
                 </div>
                 <span className={`rounded-full px-3 py-1 text-xs font-bold ${student.isSuspended ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"}`}>
                   {student.isSuspended ? "Suspended" : "Active"}

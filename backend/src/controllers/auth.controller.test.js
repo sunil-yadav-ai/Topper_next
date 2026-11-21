@@ -39,8 +39,8 @@ test("registers a pending student and emails a hashed, expiring verification cod
         body: {
           fullName: "Ada Student",
           email: " ADA@EXAMPLE.COM ",
+          phoneNumber: "+91 98765-43210",
           password: "secure-password",
-          college: "Example College",
           university: "Example University",
           department: "Computer Science",
           batch: "2024",
@@ -54,6 +54,8 @@ test("registers a pending student and emails a hashed, expiring verification cod
 
     assert.equal(response.statusCode, 201);
     assert.equal(createdUser.email, "ada@example.com");
+    assert.equal(createdUser.phoneNumber, "9876543210");
+    assert.equal(createdUser.phoneVerified, false);
     assert.equal(createdUser.role, "user");
     assert.equal(createdUser.emailVerified, false);
     assert.equal(createdUser.emailVerificationRequired, true);
@@ -73,16 +75,179 @@ test("registers a pending student and emails a hashed, expiring verification cod
   }
 });
 
+test("rejects an invalid mobile number before creating a student", async () => {
+  await assert.rejects(
+    authController.registerStudent(
+      {
+        body: {
+          fullName: "Ada Student",
+          email: "ada@example.com",
+          phoneNumber: "12345",
+          password: "secure-password",
+          university: "Example University",
+          department: "Computer Science",
+          batch: "2024",
+          semester: 1,
+        },
+      },
+      { status() { return this; }, json() {} },
+    ),
+    { statusCode: 400, message: /valid 10-digit Indian mobile number/ },
+  );
+});
+
+test("rejects an existing mobile number", async () => {
+  const originalExists = User.exists;
+  User.exists = async (query) => query.phoneNumber ? { _id: "existing-phone" } : false;
+
+  try {
+    await assert.rejects(
+      authController.registerStudent(
+        {
+          body: {
+            fullName: "Ada Student",
+            email: "ada@example.com",
+            phoneNumber: "+91 9876543210",
+            password: "secure-password",
+            university: "Example University",
+            department: "Computer Science",
+            batch: "2024",
+            semester: 1,
+          },
+        },
+        { status() { return this; }, json() {} },
+      ),
+      { statusCode: 400, message: /mobile number/ },
+    );
+  } finally {
+    User.exists = originalExists;
+  }
+});
+
+test("re-registering a pending email refreshes the verification code instead of reporting a duplicate", async () => {
+  const originals = {
+    exists: User.exists,
+    findOne: User.findOne,
+    create: User.create,
+  };
+  const pendingUser = {
+    _id: "pending-student",
+    id: "pending-student",
+    email: "ada@example.com",
+    fullName: "Old Name",
+    emailVerified: false,
+    emailVerificationRequired: true,
+    async save() {},
+  };
+  const sentEmails = [];
+
+  User.exists = async (query) =>
+    query.email === "ada@example.com" || query.phoneNumber === "9876543210";
+  User.findOne = (query) => ({
+    select: async () =>
+      query.email
+        ? pendingUser
+        : {
+            _id: "pending-student",
+            id: "pending-student",
+            email: "ada@example.com",
+          },
+  });
+  User.create = async () => {
+    throw new Error("Pending registration should update, not create.");
+  };
+
+  const response = {
+    statusCode: 200,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(payload) {
+      this.payload = payload;
+    },
+  };
+
+  try {
+    await authController.registerStudent(
+      {
+        body: {
+          fullName: "Ada Updated",
+          email: " ADA@EXAMPLE.COM ",
+          phoneNumber: "+91 9876543210",
+          password: "new-secure-password",
+          university: "Updated University",
+          department: "Computer Science",
+          batch: "2025",
+          semester: 2,
+        },
+      },
+      response,
+      { sendEmail: async (message) => sentEmails.push(message) },
+    );
+
+    assert.equal(response.statusCode, 201);
+    assert.equal(pendingUser.fullName, "Ada Updated");
+    assert.equal(pendingUser.phoneNumber, "9876543210");
+    assert.equal(pendingUser.phoneVerified, false);
+    assert.equal(pendingUser.password, "new-secure-password");
+    assert.equal(pendingUser.emailVerified, false);
+    assert.equal(pendingUser.emailVerificationRequired, true);
+    assert.equal(sentEmails.length, 1);
+    assert.match(response.payload.message, /fresh 6-digit verification code/);
+  } finally {
+    User.exists = originals.exists;
+    User.findOne = originals.findOne;
+    User.create = originals.create;
+  }
+});
+
 test("verifies the email OTP and clears pending verification state", async () => {
   const originalFindOneAndUpdate = User.findOneAndUpdate;
+  const originalFindById = User.findById;
   let filter;
   let update;
   User.findOneAndUpdate = async (query, changes) => {
     filter = query;
     update = changes;
-    return { id: "student-otp" };
+    return {
+      id: "student-otp",
+      toSafeObject: () => ({
+        id: "student-otp",
+        username: "studentotp",
+        role: "user",
+        emailVerified: true,
+      }),
+    };
   };
-  const response = { json(payload) { this.payload = payload; } };
+  User.findById = (id) => ({
+    select: async (fields) => {
+      assert.equal(fields, "+authVersion");
+      assert.equal(id, "student-otp");
+      return {
+        id,
+        authVersion: 7,
+        toSafeObject: () => ({
+          id,
+          username: "studentotp",
+          role: "user",
+          emailVerified: true,
+        }),
+      };
+    },
+  });
+  const response = {
+    clearedCookies: [],
+    clearCookie(name, options) {
+      this.clearedCookies.push({ name, options });
+    },
+    cookie(name, value, options) {
+      this.cookieName = name;
+      this.cookieValue = value;
+      this.cookieOptions = options;
+    },
+    json(payload) { this.payload = payload; },
+  };
 
   try {
     await authController.verifyEmail(
@@ -98,8 +263,12 @@ test("verifies the email OTP and clears pending verification state", async () =>
     assert.equal(update.$set.emailVerificationRequired, false);
     assert.ok("emailVerificationTokenHash" in update.$unset);
     assert.match(response.payload.message, /Email verified/);
+    assert.equal(response.payload.user.username, "studentotp");
+    assert.equal(response.cookieName, authService.authCookieName);
+    assert.equal(authService.verifyAuthToken(response.cookieValue).ver, 7);
   } finally {
     User.findOneAndUpdate = originalFindOneAndUpdate;
+    User.findById = originalFindById;
   }
 });
 
@@ -191,6 +360,16 @@ test("the User schema only permits user/admin and defaults to user", async () =>
   const user = new User();
   assert.equal(user.role, "user");
   assert.deepEqual(User.schema.path("role").enumValues, ["user", "admin"]);
+  assert.equal(user.phoneVerified, false);
+  assert.equal(User.schema.path("phoneNumber").instance, "String");
+  const phoneIndex = User.schema.indexes().find(
+    ([fields]) => fields.phoneNumber === 1,
+  );
+  assert.ok(phoneIndex);
+  assert.equal(phoneIndex[1].unique, true);
+  assert.deepEqual(phoneIndex[1].partialFilterExpression, {
+    phoneNumber: { $type: "string" },
+  });
 });
 
 test("logs in a student whose email has not been verified", async () => {

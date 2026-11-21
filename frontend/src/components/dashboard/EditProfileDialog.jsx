@@ -3,7 +3,6 @@ import FormField from "../FormField.jsx";
 
 const editableFields = [
   ["fullName", "Full name", "text"],
-  ["college", "College", "text"],
   ["university", "University", "text"],
   ["department", "Department", "text"],
   ["batch", "Batch", "text"],

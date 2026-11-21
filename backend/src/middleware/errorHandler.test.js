@@ -53,3 +53,18 @@ test("reports syllabus-specific upload validation errors", () => {
   assert.equal(response.statusCode, 413);
   assert.equal(response.body.message, "Syllabus files must be 10 MB or smaller.");
 });
+
+test("reports duplicate mobile registration errors clearly", () => {
+  const response = responseCapture();
+  errorHandler(
+    { code: 11000, keyPattern: { phoneNumber: 1 } },
+    {},
+    response,
+    () => {},
+  );
+  assert.equal(response.statusCode, 409);
+  assert.equal(
+    response.body.message,
+    "An account with this mobile number already exists.",
+  );
+});

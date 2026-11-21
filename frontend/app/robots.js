@@ -7,7 +7,6 @@ export default function robots() {
       allow: "/",
       disallow: [
         "/api/",
-        "/search",
         "/login",
         "/admin",
         "/register",
@@ -23,7 +22,7 @@ export default function robots() {
         "/practice",
         "/syllabus",
         "/profile/",
-        "/resources/",
+        "/resources/note/",
       ],
     },
     sitemap: new URL("/sitemap.xml", siteOrigin).href,

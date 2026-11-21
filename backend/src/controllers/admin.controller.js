@@ -270,13 +270,12 @@ export async function listAdminStudents(request, response) {
       { fullName: match },
       { email: match },
       { university: match },
-      { college: match },
       { department: match },
     ];
   }
   const [students, total] = await Promise.all([
     User.find(filter)
-      .select("fullName email university college department batch semester emailVerified isSuspended suspendedAt suspendedBy suspensionReason createdAt")
+      .select("fullName email university department batch semester emailVerified isSuspended suspendedAt suspendedBy suspensionReason createdAt")
       .populate("suspendedBy", "fullName")
       .sort({ createdAt: -1, _id: -1 })
       .skip((page - 1) * pageLimit)
@@ -306,7 +305,6 @@ export async function listAdminStudents(request, response) {
       fullName: student.fullName,
       email: student.email,
       university: student.university,
-      college: student.college,
       department: student.department,
       batch: student.batch,
       semester: student.semester,

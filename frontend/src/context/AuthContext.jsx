@@ -35,12 +35,17 @@ export function AuthProvider({ children }) {
     setAuthError("");
   }
 
+  function establishSession(authenticatedUser) {
+    setUser(authenticatedUser);
+    setAuthError("");
+  }
+
   function updateUser(profile) {
     setUser((currentUser) => (currentUser ? { ...currentUser, ...profile } : profile));
   }
 
   const value = useMemo(
-    () => ({ user, loading, authError, signIn, signOut, updateUser }),
+    () => ({ user, loading, authError, signIn, signOut, establishSession, updateUser }),
     [user, loading, authError],
   );
 

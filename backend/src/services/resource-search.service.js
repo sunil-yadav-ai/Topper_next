@@ -10,6 +10,9 @@ import {
 } from "./resource-search-index.service.js";
 
 const supportedNoteMarks = new Set([2, 3, 4, 5, 6, 8, 10, 12, 15, 20]);
+const searchOptionsCacheKey = Symbol.for("topper.resource-search.options-cache");
+const searchOptionsCache = (globalThis[searchOptionsCacheKey] ??= new Map());
+const searchOptionsCacheTtlMs = 5 * 60 * 1000;
 
 function badRequest(message) {
   const error = new Error(message);
@@ -228,6 +231,10 @@ export async function getResourceSearchOptions(resourceType) {
   if (!["note", "pyq"].includes(resourceType)) {
     throw badRequest("resourceType must be note or pyq.");
   }
+  const cached = searchOptionsCache.get(resourceType);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
 
   if (resourceType === "note") {
     const [subjects, topics, uploaderIds, noteUniversities, searchableDocuments] =
@@ -266,6 +273,10 @@ export async function getResourceSearchOptions(resourceType) {
         ? { statusBreakdown: await getNoteStatusBreakdown() }
         : {}),
     });
+    searchOptionsCache.set(resourceType, {
+      value: options,
+      expiresAt: Date.now() + searchOptionsCacheTtlMs,
+    });
     return options;
   }
 
@@ -296,6 +307,10 @@ export async function getResourceSearchOptions(resourceType) {
     ...(searchableDocuments === 0
       ? { statusBreakdown: await getPyqStatusBreakdown() }
       : {}),
+  });
+  searchOptionsCache.set(resourceType, {
+    value: options,
+    expiresAt: Date.now() + searchOptionsCacheTtlMs,
   });
   return options;
 }

@@ -342,7 +342,6 @@ seoRouter.get("/robots.txt", (_request, response) => {
       "User-agent: *",
       "Allow: /",
       "Disallow: /api/",
-      "Disallow: /search",
       "Disallow: /login",
       "Disallow: /admin",
       "Disallow: /register",
@@ -358,7 +357,7 @@ seoRouter.get("/robots.txt", (_request, response) => {
       "Disallow: /practice",
       "Disallow: /syllabus",
       "Disallow: /profile/",
-      "Disallow: /resources/",
+      "Disallow: /resources/note/",
       `Sitemap: ${new URL("/sitemap.xml", getSiteOrigin()).href}`,
       "",
     ].join("\n"));
@@ -422,6 +421,7 @@ seoRouter.get("/api/seo/subjects/:subjectSlug", async (request, response) => {
 
 seoRouter.get("/notes/:resourceId", (request, response) => serveResourcePage(request, response, "note"));
 seoRouter.get("/notes/:resourceId/:slug", (request, response) => serveResourcePage(request, response, "note"));
+seoRouter.get("/resources/pyq/:resourceId", (request, response) => serveResourcePage(request, response, "pyq"));
 seoRouter.use((request, response, next) => {
   if (
     !["GET", "HEAD"].includes(request.method) ||

@@ -1,4 +1,5 @@
 import { isAllowedCorsOrigin } from "./config/env.js";
+import { performance } from "node:perf_hooks";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import {
   createRequestContext,
@@ -80,7 +81,7 @@ function applyCors(request, response) {
 function applySecurityHeaders(response) {
   const headers = {
     "Content-Security-Policy":
-      "default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests",
+      "default-src 'self';base-uri 'self';connect-src 'self' https://pagead2.googlesyndication.com https://googleads.g.doubleclick.net https://tpc.googlesyndication.com;font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';frame-src 'self' https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://www.google.com;img-src 'self' data: https:;object-src 'none';script-src 'self' https://pagead2.googlesyndication.com https://googleads.g.doubleclick.net https://tpc.googlesyndication.com;script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests",
     "Cross-Origin-Opener-Policy": "same-origin",
     "Cross-Origin-Resource-Policy": "same-origin",
     "Origin-Agent-Cluster": "?1",
@@ -91,18 +92,41 @@ function applySecurityHeaders(response) {
     "X-Frame-Options": "SAMEORIGIN",
     "X-Permitted-Cross-Domain-Policies": "none",
     "X-XSS-Protection": "0",
+    "Permissions-Policy":
+      "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
   };
   for (const [name, value] of Object.entries(headers)) {
     response.setDefault(name, value);
   }
 }
 
+function applyReadCaching(request, response, pathname) {
+  if (request.method !== "GET") return;
+  if (request.headers.get("cookie") || request.headers.get("authorization")) return;
+
+  const publicCachePaths = new Set([
+    "/api/search/options",
+  ]);
+  if (
+    publicCachePaths.has(pathname) ||
+    pathname.startsWith("/api/seo/")
+  ) {
+    response.setDefault(
+      "Cache-Control",
+      "public, s-maxage=60, stale-while-revalidate=300",
+    );
+  }
+}
+
 export async function dispatchApiRequest(webRequest, pathname) {
+  const startedAt = performance.now();
+  pathname ??= new URL(webRequest.url).pathname;
   const request = createRequestContext(webRequest, pathname);
   const response = createResponseContext();
 
   try {
     applyCors(request, response);
+    applyReadCaching(request, response, pathname);
     if (!response.sent) {
       const contentType = request.headers.get("content-type") ?? "";
       if (contentType.includes("application/json")) {
@@ -134,6 +158,15 @@ export async function dispatchApiRequest(webRequest, pathname) {
   }
 
   applySecurityHeaders(response);
+  const responseTimeMs = Math.round(performance.now() - startedAt);
+  if (process.env.NODE_ENV !== "production") {
+    response.set("X-Response-Time-Ms", String(responseTimeMs));
+    if (responseTimeMs >= 100) {
+      console.info(
+        `[api-perf] ${request.method} ${pathname} completed in ${responseTimeMs} ms.`,
+      );
+    }
+  }
   return response.toResponse(request.method);
 }
 

@@ -28,7 +28,6 @@ if (!fullName || !email || !password) {
       username: await createUniqueUsername(User, fullName),
       password,
       role: "admin",
-      college: "Administration",
       university: "Administration",
       department: "Administration",
       batch: "N/A",

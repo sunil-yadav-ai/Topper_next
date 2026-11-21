@@ -17,6 +17,9 @@ export function organizationSchema(origin = fallbackOrigin) {
       name: "Topper",
       url,
       publisher: { "@id": `${url}#organization` },
+      inLanguage: "en",
+      description:
+        "Free study notes, previous-year question papers, and student learning resources.",
     },
   ];
 }

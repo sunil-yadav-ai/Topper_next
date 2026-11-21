@@ -432,8 +432,8 @@ export default function ProfilePage({ username = "" }) {
                 <p className="ed-profile-username">@{profile.username}</p>
                 {profile.bio && <p className="ed-profile-bio">{profile.bio}</p>}
                 <div className="ed-profile-meta">
-                  {(profile.college || profile.university) && (
-                    <span><i aria-hidden="true">⌂</i>{[profile.college, profile.university].filter(Boolean).join(" · ")}</span>
+                  {profile.university && (
+                    <span><i aria-hidden="true">⌂</i>{profile.university}</span>
                   )}
                   {(profile.course || profile.department) && (
                     <span><i aria-hidden="true">▤</i>{[profile.course, profile.department].filter(Boolean).join(" · ")}</span>
@@ -508,10 +508,6 @@ export default function ProfilePage({ username = "" }) {
                   <label className="ed-profile-form-wide">
                     Bio
                     <textarea defaultValue={profile.bio} maxLength={300} name="bio" rows={3} />
-                  </label>
-                  <label>
-                    College
-                    <input defaultValue={profile.college} maxLength={120} name="college" required />
                   </label>
                   <label>
                     Course

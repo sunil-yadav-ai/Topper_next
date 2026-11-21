@@ -4136,6 +4136,47 @@ progress {
   box-shadow: 0 0 0 3px rgb(255 107 36 / 16%) !important;
 }
 
+.ed-otp-label {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--ed-black);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ed-otp-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.ed-otp-input {
+  width: 100%;
+  height: 58px;
+  border: 1.5px solid rgb(23 23 23 / 36%);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ed-black);
+  font-family: "Arial Black", "Trebuchet MS", sans-serif;
+  font-size: 24px;
+  text-align: center;
+  box-shadow: 2px 2px 0 rgb(23 23 23 / 7%);
+  outline: none;
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.ed-otp-input:focus {
+  border-color: var(--ed-orange);
+  box-shadow: 0 0 0 3px rgb(255 107 36 / 16%);
+  transform: translateY(-1px);
+}
+
+.ed-otp-input:disabled {
+  background: #f7f4ed;
+  cursor: wait;
+}
+
 .ed-auth-submit {
   min-height: 51px;
   border: 2px solid var(--ed-black) !important;
@@ -4277,6 +4318,15 @@ progress {
 
   .ed-auth-form-panel form > .grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ed-otp-grid {
+    gap: 6px;
+  }
+
+  .ed-otp-input {
+    height: 52px;
+    font-size: 20px;
   }
 }
 
@@ -12206,5 +12256,146 @@ body,
   .notes-to-pdf-download,
   .notes-to-pdf-reset {
     width: 100%;
+  }
+}
+
+/* Cross-page responsive safety for mobile and desktop layouts. */
+html {
+  max-width: 100%;
+  overflow-x: clip;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body,
+.ed-site,
+.ed-app-site,
+.ed-app-content {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+img,
+picture,
+svg,
+video,
+canvas,
+iframe {
+  max-width: 100%;
+}
+
+main,
+section,
+article,
+aside,
+form,
+fieldset,
+.ed-app-content > main {
+  min-width: 0;
+}
+
+input,
+button,
+textarea,
+select {
+  max-width: 100%;
+}
+
+@media (hover: none), (pointer: coarse) {
+  a,
+  button,
+  [role="button"],
+  input,
+  select,
+  textarea,
+  summary {
+    touch-action: manipulation;
+  }
+}
+
+@media (max-width: 760px) {
+  body {
+    min-width: 0;
+  }
+
+  .ed-app-content,
+  .ed-app-content > main {
+    width: 100%;
+  }
+
+  .ed-app-content .ed-profile-page,
+  .ed-app-content .ed-dashboard-page,
+  .ed-app-content .ed-library-page,
+  .ed-app-content .ed-search-page,
+  .ed-app-content .ed-resource-page,
+  .ed-app-content .ed-upload-page,
+  .ed-app-content .ed-admin-page,
+  .ed-app-content .ed-notifications-page,
+  .ed-app-content .ed-syllabus-page,
+  .ed-app-content .ed-practice-page,
+  .ed-app-content .ed-pyq-page {
+    width: calc(100% - 28px);
+  }
+
+  .ed-app-content table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .ed-app-content pre,
+  .ed-app-content code {
+    max-width: 100%;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .ed-app-content [class*="-grid"] {
+    min-width: 0;
+  }
+
+  .ed-app-content [class*="-dialog"],
+  .ed-app-content [role="dialog"] {
+    width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
+  }
+
+  .ed-app-content input,
+  .ed-app-content textarea,
+  .ed-app-content select {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .ed-app-content button,
+  .ed-app-content .ed-button {
+    min-height: 44px;
+  }
+
+  .ed-app-content h1,
+  .ed-app-content h2,
+  .ed-app-content h3,
+  .ed-app-content p,
+  .ed-app-content dd,
+  .ed-app-content li {
+    overflow-wrap: anywhere;
+  }
+
+  .ed-footer-inner,
+  .ed-section-inner,
+  .ed-final-cta-inner {
+    width: calc(100% - 28px);
+  }
+}
+
+@media (max-width: 420px) {
+  .ed-app-content [class*="-card"] {
+    min-width: 0;
+  }
+
+  .ed-app-content [class*="-actions"],
+  .ed-app-content [class*="-buttons"] {
+    width: 100%;
+    flex-wrap: wrap;
   }
 }
