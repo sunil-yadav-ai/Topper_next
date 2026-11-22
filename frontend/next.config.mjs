@@ -11,6 +11,9 @@ if (publisherId && !/^ca-pub-\d+$/.test(publisherId)) {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   outputFileTracingRoot: path.resolve(frontendRoot, ".."),
+  outputFileTracingIncludes: {
+    "/api/**/*": ["../node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"],
+  },
   serverExternalPackages: [
     "@google/genai",
     "@napi-rs/canvas",
