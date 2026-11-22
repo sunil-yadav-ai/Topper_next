@@ -15,12 +15,12 @@ import {
 } from "lucide-react";
 import { GlobalWorkerOptions, getDocument } from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import { api } from "../lib/api.js";
-import { PageLoader } from "../components/PageState.jsx";
-import AdaptiveTutor from "../components/AdaptiveTutor.jsx";
-import { usePageMotion } from "../lib/usePageMotion.js";
-import { useAuth } from "../context/AuthContext.jsx";
-import NoteBookReader from "../components/NoteBookReader.jsx";
+import { api } from "../../lib/api.js";
+import { PageLoader } from "../PageState.jsx";
+import AdaptiveTutor from "../AdaptiveTutor.jsx";
+import { usePageMotion } from "../../lib/usePageMotion.js";
+import { useAuth } from "../../context/AuthContext.jsx";
+import NoteBookReader from "../NoteBookReader.jsx";
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 

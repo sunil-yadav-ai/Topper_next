@@ -1,6 +1,6 @@
 import Link from "next/link";
-import Panel from "../components/Panel.jsx";
-import TopperLogo from "../components/TopperLogo.jsx";
+import Panel from "../Panel.jsx";
+import TopperLogo from "../TopperLogo.jsx";
 
 const terms = [
   {

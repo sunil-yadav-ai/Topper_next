@@ -1,4 +1,4 @@
-import { RegisterPage } from "../../src/pages/AuthPages.jsx";
+import { RegisterPage } from "../../src/components/pages/AuthPages.jsx";
 import { createPageMetadata } from "../../server/seo-metadata.js";
 
 export const metadata = createPageMetadata({

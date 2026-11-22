@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import Panel from "../components/Panel.jsx";
-import { api } from "../lib/api.js";
-import { usePageMotion } from "../lib/usePageMotion.js";
-import AnimatedIllustration from "../components/AnimatedIllustration.jsx";
+import Panel from "../Panel.jsx";
+import { api } from "../../lib/api.js";
+import { usePageMotion } from "../../lib/usePageMotion.js";
+import AnimatedIllustration from "../AnimatedIllustration.jsx";
 
 function messageFrom(error) {
   return error.response?.data?.message ?? error.message ?? "Could not load notification history.";

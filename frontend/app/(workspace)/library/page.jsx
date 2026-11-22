@@ -1,5 +1,5 @@
 import RouteGuard from "../../../src/components/RouteGuard.jsx";
-import LibraryPage from "../../../src/pages/LibraryPage.jsx";
+import LibraryPage from "../../../src/components/pages/LibraryPage.jsx";
 import { createPageMetadata } from "../../../server/seo-metadata.js";
 
 export const metadata = createPageMetadata({

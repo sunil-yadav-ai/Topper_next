@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { api } from "../lib/api.js";
-import { usePageMotion } from "../lib/usePageMotion.js";
+import { api } from "../../lib/api.js";
+import { usePageMotion } from "../../lib/usePageMotion.js";
 
 const sections = [
   ["saved", "Saved resources"],

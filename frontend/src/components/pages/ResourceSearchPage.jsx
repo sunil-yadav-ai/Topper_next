@@ -12,15 +12,15 @@ import {
   Search,
   SlidersHorizontal,
 } from "lucide-react";
-import { useAuth } from "../context/AuthContext.jsx";
-import { api } from "../lib/api.js";
+import { useAuth } from "../../context/AuthContext.jsx";
+import { api } from "../../lib/api.js";
 import {
   subscribeResourceOptionsUpdated,
-} from "../lib/resource-options.js";
-import useResponsiveFilters from "../lib/useResponsiveFilters.js";
-import { usePageMotion } from "../lib/usePageMotion.js";
-import AdUnit from "../components/AdUnit.jsx";
-import { EmptyState, PageLoader } from "../components/PageState.jsx";
+} from "../../lib/resource-options.js";
+import useResponsiveFilters from "../../lib/useResponsiveFilters.js";
+import { usePageMotion } from "../../lib/usePageMotion.js";
+import AdUnit from "../AdUnit.jsx";
+import { EmptyState, PageLoader } from "../PageState.jsx";
 
 const pageSize = 12;
 const noteMarksOptions = ["2", "3", "4", "5", "6", "8", "10", "12", "15", "20"];

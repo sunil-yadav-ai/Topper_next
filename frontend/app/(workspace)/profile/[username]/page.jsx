@@ -1,4 +1,4 @@
-import ProfilePage from "../../../../src/pages/ProfilePage.jsx";
+import ProfilePage from "../../../../src/components/pages/ProfilePage.jsx";
 import { createPageMetadata } from "../../../../server/seo-metadata.js";
 
 export async function generateMetadata({ params }) {

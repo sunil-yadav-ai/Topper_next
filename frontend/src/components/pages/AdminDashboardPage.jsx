@@ -2,11 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import CommunityReports from "../components/dashboard/CommunityReports.jsx";
-import AdminRewardsPanel from "../components/AdminRewardsPanel.jsx";
-import Panel from "../components/Panel.jsx";
-import { api } from "../lib/api.js";
-import { usePageMotion } from "../lib/usePageMotion.js";
+import CommunityReports from "../dashboard/CommunityReports.jsx";
+import AdminRewardsPanel from "../AdminRewardsPanel.jsx";
+import Panel from "../Panel.jsx";
+import { api } from "../../lib/api.js";
+import { usePageMotion } from "../../lib/usePageMotion.js";
 
 const sections = [
   ["overview", "Overview"],

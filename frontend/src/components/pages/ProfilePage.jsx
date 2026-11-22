@@ -4,13 +4,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Camera } from "lucide-react";
-import { useAuth } from "../context/AuthContext.jsx";
-import { api } from "../lib/api.js";
-import { usePageMotion } from "../lib/usePageMotion.js";
-import { PageLoader } from "../components/PageState.jsx";
-import ProfileImageCropDialog from "../components/ProfileImageCropDialog.jsx";
-import ProfilePeopleSearch from "../components/ProfilePeopleSearch.jsx";
-import StudentActivityHeatmap from "../components/StudentActivityHeatmap.jsx";
+import { useAuth } from "../../context/AuthContext.jsx";
+import { api } from "../../lib/api.js";
+import { usePageMotion } from "../../lib/usePageMotion.js";
+import { PageLoader } from "../PageState.jsx";
+import ProfileImageCropDialog from "../ProfileImageCropDialog.jsx";
+import ProfilePeopleSearch from "../ProfilePeopleSearch.jsx";
+import StudentActivityHeatmap from "../StudentActivityHeatmap.jsx";
 
 const tabs = [
   ["all", "All contributions"],

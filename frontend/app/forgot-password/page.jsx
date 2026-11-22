@@ -1,4 +1,4 @@
-import { ForgotPasswordPage } from "../../src/pages/AuthPages.jsx";
+import { ForgotPasswordPage } from "../../src/components/pages/AuthPages.jsx";
 import { createPageMetadata } from "../../server/seo-metadata.js";
 
 export const metadata = createPageMetadata({

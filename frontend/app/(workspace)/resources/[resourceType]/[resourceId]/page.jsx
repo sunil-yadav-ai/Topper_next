@@ -1,6 +1,6 @@
 import RouteGuard from "../../../../../src/components/RouteGuard.jsx";
-import ResourceViewerPage from "../../../../../src/pages/ResourceViewerPage.jsx";
-import { PublicResourcePage } from "../../../../../src/pages/PublicSeoPages.jsx";
+import ResourceViewerPage from "../../../../../src/components/pages/ResourceViewerPage.jsx";
+import { PublicResourcePage } from "../../../../../src/components/pages/PublicSeoPages.jsx";
 import { createPageMetadata, getPublicSeoData } from "../../../../../server/seo-metadata.js";
 import { siteOrigin } from "../../../../../server/site-origin.js";
 

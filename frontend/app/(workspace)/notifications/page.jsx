@@ -1,5 +1,5 @@
 import RouteGuard from "../../../src/components/RouteGuard.jsx";
-import NotificationsPage from "../../../src/pages/NotificationsPage.jsx";
+import NotificationsPage from "../../../src/components/pages/NotificationsPage.jsx";
 import { createPageMetadata } from "../../../server/seo-metadata.js";
 
 export const metadata = createPageMetadata({

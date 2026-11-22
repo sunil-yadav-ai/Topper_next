@@ -1,4 +1,4 @@
-import { ResendVerificationPage } from "../../src/pages/AuthPages.jsx";
+import { ResendVerificationPage } from "../../src/components/pages/AuthPages.jsx";
 import { createPageMetadata } from "../../server/seo-metadata.js";
 
 export const metadata = createPageMetadata({

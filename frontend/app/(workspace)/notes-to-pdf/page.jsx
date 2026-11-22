@@ -1,5 +1,5 @@
 import RouteGuard from "../../../src/components/RouteGuard.jsx";
-import NotesToPdfPage from "../../../src/pages/NotesToPdfPage.jsx";
+import NotesToPdfPage from "../../../src/components/pages/NotesToPdfPage.jsx";
 import { createPageMetadata } from "../../../server/seo-metadata.js";
 
 export const metadata = createPageMetadata({

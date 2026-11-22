@@ -3,13 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import AuthLayout from "../components/AuthLayout.jsx";
-import FormField from "../components/FormField.jsx";
-import SubmitButton from "../components/SubmitButton.jsx";
-import { useAuth } from "../context/AuthContext.jsx";
-import { api } from "../lib/api.js";
-import { getPostLoginPath } from "../lib/navigation.js";
-import { isValidIndianMobile } from "../lib/mobile-number.js";
+import AuthLayout from "../AuthLayout.jsx";
+import FormField from "../FormField.jsx";
+import SubmitButton from "../SubmitButton.jsx";
+import { useAuth } from "../../context/AuthContext.jsx";
+import { api } from "../../lib/api.js";
+import { getPostLoginPath } from "../../lib/navigation.js";
+import { isValidIndianMobile } from "../../lib/mobile-number.js";
 
 function FormAlert({ message, success = false }) {
   if (!message) return null;

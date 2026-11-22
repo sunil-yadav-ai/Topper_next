@@ -2,15 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useAuth } from "../context/AuthContext.jsx";
-import { api } from "../lib/api.js";
-import { notifyResourceOptionsUpdated } from "../lib/resource-options.js";
-import AdUnit from "../components/AdUnit.jsx";
-import { PageLoader } from "../components/PageState.jsx";
-import { usePageMotion } from "../lib/usePageMotion.js";
-import useResponsiveFilters from "../lib/useResponsiveFilters.js";
-import { JsonLd, breadcrumbSchema, organizationSchema } from "../lib/seo-schema.jsx";
-import { getPublicResourcePath } from "../lib/navigation.js";
+import { useAuth } from "../../context/AuthContext.jsx";
+import { api } from "../../lib/api.js";
+import { notifyResourceOptionsUpdated } from "../../lib/resource-options.js";
+import AdUnit from "../AdUnit.jsx";
+import { PageLoader } from "../PageState.jsx";
+import { usePageMotion } from "../../lib/usePageMotion.js";
+import useResponsiveFilters from "../../lib/useResponsiveFilters.js";
+import { JsonLd, breadcrumbSchema, organizationSchema } from "../../lib/seo-schema.jsx";
+import { getPublicResourcePath } from "../../lib/navigation.js";
 
 const initialFilters = {
   search: "",

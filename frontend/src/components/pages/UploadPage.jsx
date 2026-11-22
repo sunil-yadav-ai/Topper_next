@@ -12,14 +12,14 @@ import {
   LoaderCircle,
   X,
 } from "lucide-react";
-import { useAuth } from "../context/AuthContext.jsx";
-import { api } from "../lib/api.js";
+import { useAuth } from "../../context/AuthContext.jsx";
+import { api } from "../../lib/api.js";
 import {
   notifyResourceOptionsUpdated,
   resourceOptionsUpdatedEvent,
-} from "../lib/resource-options.js";
-import { gsap } from "../lib/gsap.js";
-import AnimatedIllustration from "../components/AnimatedIllustration.jsx";
+} from "../../lib/resource-options.js";
+import { gsap } from "../../lib/gsap.js";
+import AnimatedIllustration from "../AnimatedIllustration.jsx";
 
 gsap.registerPlugin(useGSAP);
 

@@ -15,7 +15,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { PDFDocument, PageSizes } from "pdf-lib";
-import { gsap } from "../lib/gsap.js";
+import { gsap } from "../../lib/gsap.js";
 
 gsap.registerPlugin(useGSAP);
 

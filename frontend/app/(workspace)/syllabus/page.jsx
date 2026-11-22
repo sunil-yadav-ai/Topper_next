@@ -1,5 +1,5 @@
 import RouteGuard from "../../../src/components/RouteGuard.jsx";
-import SyllabusAnalysisPage from "../../../src/pages/SyllabusAnalysisPage.jsx";
+import SyllabusAnalysisPage from "../../../src/components/pages/SyllabusAnalysisPage.jsx";
 import { createPageMetadata } from "../../../server/seo-metadata.js";
 
 export const metadata = createPageMetadata({

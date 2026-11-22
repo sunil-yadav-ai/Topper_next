@@ -1,5 +1,5 @@
 import RouteGuard from "../../../src/components/RouteGuard.jsx";
-import AiPracticePage from "../../../src/pages/AiPracticePage.jsx";
+import AiPracticePage from "../../../src/components/pages/AiPracticePage.jsx";
 import { createPageMetadata } from "../../../server/seo-metadata.js";
 
 export const metadata = createPageMetadata({

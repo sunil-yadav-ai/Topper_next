@@ -1,4 +1,4 @@
-import AdvertisingDisclosurePage from "../../../src/pages/AdvertisingDisclosurePage.jsx";
+import AdvertisingDisclosurePage from "../../../src/components/pages/AdvertisingDisclosurePage.jsx";
 import { createPageMetadata } from "../../../server/seo-metadata.js";
 
 export const metadata = createPageMetadata({

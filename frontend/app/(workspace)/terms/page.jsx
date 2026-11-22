@@ -1,4 +1,4 @@
-import TermsPage from "../../../src/pages/TermsPage.jsx";
+import TermsPage from "../../../src/components/pages/TermsPage.jsx";
 import { createPageMetadata } from "../../../server/seo-metadata.js";
 
 export const metadata = createPageMetadata({

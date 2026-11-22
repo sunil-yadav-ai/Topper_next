@@ -1,5 +1,5 @@
 import RouteGuard from "../../../src/components/RouteGuard.jsx";
-import UploadPage from "../../../src/pages/UploadPage.jsx";
+import UploadPage from "../../../src/components/pages/UploadPage.jsx";
 import { createPageMetadata } from "../../../server/seo-metadata.js";
 
 export const metadata = createPageMetadata({

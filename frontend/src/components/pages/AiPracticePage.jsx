@@ -19,9 +19,9 @@ import {
   Timer,
   X,
 } from "lucide-react";
-import { api } from "../lib/api.js";
-import { gsap } from "../lib/gsap.js";
-import { useAuth } from "../context/AuthContext.jsx";
+import { api } from "../../lib/api.js";
+import { gsap } from "../../lib/gsap.js";
+import { useAuth } from "../../context/AuthContext.jsx";
 
 gsap.registerPlugin(useGSAP);
 

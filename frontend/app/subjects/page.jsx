@@ -1,6 +1,6 @@
 import {
   SubjectDirectoryPage,
-} from "../../src/pages/PublicSeoPages.jsx";
+} from "../../src/components/pages/PublicSeoPages.jsx";
 import { createPageMetadata, getPublicSeoData } from "../../server/seo-metadata.js";
 import { siteOrigin } from "../../server/site-origin.js";
 

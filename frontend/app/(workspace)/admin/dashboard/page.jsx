@@ -1,4 +1,4 @@
-import AdminDashboardPage from "../../../../src/pages/AdminDashboardPage.jsx";
+import AdminDashboardPage from "../../../../src/components/pages/AdminDashboardPage.jsx";
 import { createPageMetadata } from "../../../../server/seo-metadata.js";
 
 export const metadata = createPageMetadata({

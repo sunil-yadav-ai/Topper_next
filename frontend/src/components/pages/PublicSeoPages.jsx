@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { api } from "../lib/api.js";
-import { JsonLd, breadcrumbSchema, organizationSchema } from "../lib/seo-schema.jsx";
-import { useAuth } from "../context/AuthContext.jsx";
+import { api } from "../../lib/api.js";
+import { JsonLd, breadcrumbSchema, organizationSchema } from "../../lib/seo-schema.jsx";
+import { useAuth } from "../../context/AuthContext.jsx";
 
 function PublicPageShell({ breadcrumbs = [], children }) {
   return (

@@ -1,4 +1,4 @@
-import ResourceSearchPage from "../../../src/pages/ResourceSearchPage.jsx";
+import ResourceSearchPage from "../../../src/components/pages/ResourceSearchPage.jsx";
 import { createPageMetadata } from "../../../server/seo-metadata.js";
 
 export const metadata = createPageMetadata({
