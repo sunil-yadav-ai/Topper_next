@@ -5,6 +5,7 @@ import {
   runDatabaseMaintenance,
 } from "../../backend/src/config/database.js";
 import { startNoteOcrWorker } from "../../backend/src/services/note-ocr-worker.service.js";
+import { startScholarshipDiscoveryJobs } from "../../backend/src/services/scholarship-discovery.service.js";
 
 const backendStateKey = Symbol.for("topper.backend.startup-state");
 const backendState = (globalThis[backendStateKey] ??= {
@@ -33,6 +34,7 @@ function initializeBackend() {
   const attempt = connectDatabase()
     .then(() => {
       startNoteOcrWorker();
+      startScholarshipDiscoveryJobs();
       backendState.workerStarted = true;
       backendState.failureCount = 0;
       backendState.retryAt = 0;

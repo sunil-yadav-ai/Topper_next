@@ -15,6 +15,7 @@ import {
   Upload,
   UserRound,
   X,
+  GraduationCap,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext.jsx";
 import { ScrollTrigger } from "../lib/gsap.js";
@@ -72,6 +73,7 @@ function PublicSiteHeader() {
         </button>
         <nav aria-label="Main navigation" className={`ed-nav ed-app-nav ${menuOpen ? "ed-nav-open" : ""}`}>
           <Link href="/search">Explore</Link>
+          <Link href="/scholarships">Scholarships</Link>
           <Link href="/login">Student sign in</Link>
           <Link className="ed-nav-cta" href="/register">
             Join for free
@@ -132,6 +134,7 @@ export function AuthenticatedSiteHeader({ user }) {
           {user.role === "user" && (
             <>
               <ActiveLink className="ed-nav-link" href="/search"><Compass aria-hidden="true" />Explore</ActiveLink>
+              <ActiveLink className="ed-nav-link" href="/scholarships"><GraduationCap aria-hidden="true" />Scholarships</ActiveLink>
               <ActiveLink className="ed-nav-link" href="/uploads"><Upload aria-hidden="true" />Upload</ActiveLink>
               <ActiveLink className="ed-nav-link" href="/notes-to-pdf"><FileText aria-hidden="true" />Notes to PDF</ActiveLink>
               <ActiveLink className="ed-nav-link" href="/practice"><Sparkles aria-hidden="true" />AI Practice</ActiveLink>

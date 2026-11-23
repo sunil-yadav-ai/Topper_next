@@ -4,11 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { api } from "../../lib/api.js";
 import { usePageMotion } from "../../lib/usePageMotion.js";
+import MyScholarshipsPage from "./MyScholarshipsPage.jsx";
 
 const sections = [
   ["saved", "Saved resources"],
   ["recent", "Recently accessed"],
   ["uploads", "My uploads"],
+  ["scholarships", "My scholarships"],
 ];
 
 function messageFromError(error) {
@@ -30,7 +32,10 @@ export default function LibraryPage() {
     setLoading(true);
     setError("");
     try {
-      if (section === "uploads") {
+      if (section === "scholarships") {
+        setItems([]);
+        setFolders([]);
+      } else if (section === "uploads") {
         const [notesResponse, pyqsResponse] = await Promise.all([
           api.get("/notes"),
           api.get("/pyqs/mine"),
@@ -154,7 +159,9 @@ export default function LibraryPage() {
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3" data-motion-intro>
               <div>
                 <h2 className="text-xl font-bold text-ink">{sections.find(([key]) => key === section)?.[1]}</h2>
-                <p className="mt-1 text-sm text-slate-500">{filteredItems.length} resource{filteredItems.length === 1 ? "" : "s"}</p>
+                {section !== "scholarships" && (
+                  <p className="mt-1 text-sm text-slate-500">{filteredItems.length} resource{filteredItems.length === 1 ? "" : "s"}</p>
+                )}
               </div>
               {section === "saved" && folders.length > 0 && (
                 <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
@@ -174,6 +181,8 @@ export default function LibraryPage() {
             {notice && <p className="mb-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700" role="status">{notice}</p>}
             {loading ? (
               <p className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-600">Loading your library…</p>
+            ) : section === "scholarships" ? (
+              <MyScholarshipsPage embedded />
             ) : filteredItems.length === 0 ? (
               <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center" data-motion-scroll>
                 <h3 className="font-bold text-ink">Nothing here yet</h3>

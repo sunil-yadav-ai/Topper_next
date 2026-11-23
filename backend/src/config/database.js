@@ -3,6 +3,7 @@ import dns from "node:dns";
 import { performance } from "node:perf_hooks";
 
 import User from "../models/User.js";
+import Scholarship from "../models/Scholarship.js";
 import { env } from "./env.js";
 import { createUniqueUsername } from "../services/username.service.js";
 import { migrateResourcesToPublicViewing } from "../services/resource-migration.service.js";
@@ -120,6 +121,19 @@ async function initializeDatabase() {
 async function initializeDatabaseMaintenance() {
   await migrateResourcesToPublicViewing();
   await migrateResourceSearchIndexes();
+
+  await Scholarship.collection.dropIndex("stateRequirements_1_scholarshipType_1_educationLevels_1")
+    .catch((error) => {
+      if (error?.codeName !== "IndexNotFound" && error?.code !== 27) throw error;
+    });
+  await Scholarship.collection.createIndex(
+    { stateRequirements: 1, scholarshipType: 1 },
+    { name: "stateRequirements_1_scholarshipType_1" },
+  );
+  await Scholarship.collection.createIndex(
+    { educationLevels: 1, scholarshipType: 1 },
+    { name: "educationLevels_1_scholarshipType_1" },
+  );
 
   await User.updateMany(
     { college: { $exists: true } },

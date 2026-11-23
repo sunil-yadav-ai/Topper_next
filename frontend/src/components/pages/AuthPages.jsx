@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import AuthLayout from "../AuthLayout.jsx";
 import FormField from "../FormField.jsx";
 import SubmitButton from "../SubmitButton.jsx";
@@ -122,12 +122,16 @@ function useFormRequest() {
 export function LoginPage({ admin = false }) {
   const { signIn } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const request = useFormRequest();
   async function handleSubmit(event) {
     event.preventDefault();
     const values = Object.fromEntries(new FormData(event.currentTarget));
     const user = await request.submit(() => signIn(values, admin));
-    if (user) router.replace(getPostLoginPath(user));
+    if (user) {
+      const next = searchParams.get("next");
+      router.replace(next && next.startsWith("/scholarships") ? next : getPostLoginPath(user));
+    }
   }
 
   const title = admin ? "Admin sign in" : "Welcome back";
@@ -171,7 +175,7 @@ export function LoginPage({ admin = false }) {
       {!admin && (
         <p className="mt-5 text-center text-sm text-slate-600">
           New to Topper?{" "}
-          <Link className="font-semibold text-brand hover:underline" href="/register">
+          <Link className="font-semibold text-brand hover:underline" href={`/register${searchParams.get("next") ? `?next=${encodeURIComponent(searchParams.get("next"))}` : ""}`}>
             Create an account
           </Link>
         </p>
@@ -191,6 +195,7 @@ export function RegisterPage() {
   const resendRequest = useFormRequest();
   const { establishSession } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [verificationEmail, setVerificationEmail] = useState("");
   const [emailVerified, setEmailVerified] = useState(false);
   const [otpDigits, setOtpDigits] = useState(Array(6).fill(""));
@@ -238,8 +243,9 @@ export function RegisterPage() {
     }
     establishSession(authenticatedUser);
     setEmailVerified(true);
-    router.replace(getPostLoginPath(authenticatedUser));
-  }, [establishSession, router, verificationEmail, verificationRequest.submit]);
+    const next = searchParams.get("next");
+    router.replace(next && next.startsWith("/scholarships") ? next : getPostLoginPath(authenticatedUser));
+  }, [establishSession, router, searchParams, verificationEmail, verificationRequest.submit]);
 
   useEffect(() => {
     const code = otpDigits.join("");

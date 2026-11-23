@@ -30,6 +30,12 @@ const modelNames = [
   "StudentResourceAccess",
   "SyllabusAnalysis",
   "User",
+  "Scholarship",
+  "ScholarshipProfile",
+  "ScholarshipApplication",
+  "SavedScholarship",
+  "ScholarshipSource",
+  "ScholarshipNotification",
 ];
 
 test("Mongoose model modules reuse registered models when evaluated more than once", async () => {

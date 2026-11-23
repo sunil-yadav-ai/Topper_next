@@ -23,6 +23,7 @@ import learningTutorRouter from "./routes/learning-tutor.routes.js";
 import learningActivityRouter from "./routes/learning-activity.routes.js";
 import aiPracticeRouter from "./routes/ai-practice.routes.js";
 import seoRouter from "./routes/seo.routes.js";
+import scholarshipRouter from "./routes/scholarship.routes.js";
 
 const app = Router();
 app.use(seoRouter);
@@ -44,6 +45,7 @@ app.use("/api/profiles", profileRouter);
 app.use("/api/learning-tutor", learningTutorRouter);
 app.use("/api/learning-activity", learningActivityRouter);
 app.use("/api/ai-practice", aiPracticeRouter);
+app.use("/api/scholarships", scholarshipRouter);
 
 const exposedHeaders = [
   "Accept-Ranges",
