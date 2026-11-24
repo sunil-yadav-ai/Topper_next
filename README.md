@@ -52,8 +52,25 @@ recovery, uploads, and OCR workflows run in the Next.js Node.js runtime.
 The Next.js application serves the frontend and API at `http://localhost:3000`;
 its `GET /api/health` endpoint reports server and database readiness. Use
 `npm run build` to build the application and `npm start` to run the production
-build. API route handlers use Web `Request`/`Response` objects and initialize
-MongoDB and the OCR worker inside the Next.js runtime.
+build. `npm start` requires `NODE_ENV=production`, a valid `JWT_SECRET`, and
+`FRONTEND_URL` set to the public HTTPS deployment origin; keep
+`FRONTEND_URL=http://localhost:3000` for `npm run dev`. API route handlers use
+Web `Request`/`Response` objects and initialize MongoDB and the OCR worker
+inside the Next.js runtime.
+
+## Scholarship eligibility
+
+Eligibility is evaluated by the authenticated backend from the student's saved
+scholarship profile and each scholarship's structured `eligibilityRules` and
+`eligibilityGroups`. The profile page requests only missing fields used by that
+scholarship's rules. Unsupported or unavailable criteria return
+`VERIFICATION_REQUIRED` instead of an inferred eligible result.
+
+`GET /api/scholarships/profile/eligibility/:scholarshipId` returns the saved
+profile, missing rule fields, and completion progress.
+`POST /api/scholarships/check-eligibility` evaluates and persists the latest
+result for that student and scholarship. Profile updates invalidate prior
+results; each subsequent check reads the current scholarship rules and profile.
 
 ## Frontend loading behavior
 

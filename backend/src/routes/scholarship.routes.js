@@ -6,6 +6,7 @@ import {
   getFeatured,
   getSavedScholarships,
   getScholarship,
+  getScholarshipEligibilityProfile,
   getScholarshipProfile,
   getSourceStats,
   listApplications,
@@ -27,10 +28,11 @@ scholarshipRouter.get("/sources", optionalAuth, getSourceStats);
 scholarshipRouter.post("/discover", requireAuth, requireRole("admin"), runDiscovery);
 scholarshipRouter.get("/saved", requireAuth, getSavedScholarships);
 scholarshipRouter.post("/save", requireAuth, saveScholarship);
-scholarshipRouter.get("/profile", requireAuth, getScholarshipProfile);
-scholarshipRouter.post("/profile", requireAuth, postScholarshipProfile);
-scholarshipRouter.put("/profile", requireAuth, putScholarshipProfile);
-scholarshipRouter.post("/check-eligibility", requireAuth, checkScholarshipEligibility);
+scholarshipRouter.get("/profile/eligibility/:scholarshipId", requireAuth, requireRole("user"), getScholarshipEligibilityProfile);
+scholarshipRouter.get("/profile", requireAuth, requireRole("user"), getScholarshipProfile);
+scholarshipRouter.post("/profile", requireAuth, requireRole("user"), postScholarshipProfile);
+scholarshipRouter.put("/profile", requireAuth, requireRole("user"), putScholarshipProfile);
+scholarshipRouter.post("/check-eligibility", requireAuth, requireRole("user"), checkScholarshipEligibility);
 scholarshipRouter.get("/applications", requireAuth, listApplications);
 scholarshipRouter.post("/applications", requireAuth, createApplication);
 scholarshipRouter.put("/applications/:id", requireAuth, updateApplication);

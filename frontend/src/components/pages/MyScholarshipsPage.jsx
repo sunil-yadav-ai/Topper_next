@@ -43,6 +43,13 @@ export default function MyScholarshipsPage({ embedded = false }) {
           <p className="mt-2 text-[#615a4f]">Saved opportunities and your manual application tracking.</p>
         </>
       )}
+      <section className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border-2 border-[#171717] bg-[#fff8eb] p-5">
+        <div>
+          <h2 className="font-black">Eligibility profile</h2>
+          <p className="mt-1 text-sm text-[#615a4f]">Fill in your details once, then update them whenever they change.</p>
+        </div>
+        <Link className="rounded-xl border-2 border-[#171717] bg-[#c8ef16] px-4 py-2.5 text-sm font-black" href="/scholarships/complete-profile?returnTo=%2Flibrary">Fill or Update Profile</Link>
+      </section>
       <div className="mt-7 flex gap-2 overflow-x-auto">
         {[["saved", "Saved"], ["applications", "Applications"], ["in_progress", "In progress"]].map(([key, label]) => (
           <button className={`rounded-xl border-2 border-[#171717] px-4 py-2.5 font-black ${tab === key ? "bg-[#c8ef16]" : "bg-white"}`} key={key} onClick={() => setTab(key)} type="button">{label}</button>

@@ -10,6 +10,7 @@ const eligibilityRuleSchema = new mongoose.Schema({
   value: { type: mongoose.Schema.Types.Mixed, default: null },
   reason: { type: String, trim: true, maxlength: 500, default: "" },
   required: { type: Boolean, default: true },
+  verificationRequired: { type: Boolean, default: false },
 }, { _id: false });
 
 const scholarshipSchema = new mongoose.Schema({

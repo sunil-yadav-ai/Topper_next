@@ -213,7 +213,9 @@ if (
   }
 
   if (/localhost|127\.0\.0\.1|\[::1\]/i.test(env.frontendUrl)) {
-    throw new Error("FRONTEND_URL must use the public HTTPS production origin.");
+    throw new Error(
+      "FRONTEND_URL must use the public HTTPS production origin. For local development, run `npm run dev`; for `npm start`, set FRONTEND_URL to your deployed HTTPS domain.",
+    );
   }
 
   if (!/^https?:\/\//i.test(env.frontendUrl)) {

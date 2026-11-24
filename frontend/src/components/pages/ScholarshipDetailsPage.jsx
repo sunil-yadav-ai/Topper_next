@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CalendarDays, ExternalLink, ShieldCheck } from "lucide-react";
 import { api } from "../../lib/api.js";
+import { eligibilityNeedsProfile } from "../../lib/scholarship-profile.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 
 export default function ScholarshipDetailsPage({ slug }) {
@@ -13,14 +14,26 @@ export default function ScholarshipDetailsPage({ slug }) {
   const [scholarship, setScholarship] = useState(null);
   const [error, setError] = useState("");
   const [eligibility, setEligibility] = useState(null);
-  const [eligibilityAnswers, setEligibilityAnswers] = useState({});
   const [working, setWorking] = useState(false);
+  const autoCheckStarted = useRef(false);
 
   useEffect(() => {
     api.get(`/scholarships/${encodeURIComponent(slug)}`)
       .then(({ data }) => setScholarship(data.scholarship))
       .catch((requestError) => setError(requestError.response?.data?.message ?? "Could not load scholarship."));
   }, [slug]);
+
+  useEffect(() => {
+    if (
+      !autoCheckStarted.current &&
+      new URLSearchParams(window.location.search).get("profileCompleted") === "true" &&
+      user &&
+      scholarship
+    ) {
+      autoCheckStarted.current = true;
+      checkEligibility();
+    }
+  }, [user, scholarship]);
 
   async function checkEligibility() {
     if (!scholarship) return;
@@ -32,6 +45,11 @@ export default function ScholarshipDetailsPage({ slug }) {
     setError("");
     try {
       const eligibilityResponse = await api.post("/scholarships/check-eligibility", { scholarshipId: scholarship.id });
+      if (eligibilityNeedsProfile(eligibilityResponse.data)) {
+        setEligibility(null);
+        router.push(`/scholarships/complete-profile?scholarshipId=${encodeURIComponent(scholarship.id)}&returnTo=${encodeURIComponent(`/scholarships/${slug}`)}`);
+        return;
+      }
       setEligibility(eligibilityResponse.data);
     } catch (requestError) {
       setError(requestError.response?.data?.message ?? "Could not check eligibility.");
@@ -46,7 +64,6 @@ export default function ScholarshipDetailsPage({ slug }) {
     try {
       const { data } = await api.post("/scholarships/applications", {
         scholarshipId: scholarship.id,
-        answers: eligibilityAnswers,
       });
       window.location.assign(data.officialApplicationUrl);
     } catch (requestError) {
@@ -123,40 +140,75 @@ export default function ScholarshipDetailsPage({ slug }) {
           <p className="mt-2 text-sm text-[#615a4f]">Official verification status: <strong>{scholarship.verificationStatus}</strong>. Eligibility shown here is estimated until the official rules are checked.</p>
           <p className="mt-2 text-xs text-[#615a4f]">“Application status unconfirmed” means the application window is not verified; it does not mean you are ineligible.</p>
           {eligibility && (
-            <div className={`mt-4 rounded-xl p-3 text-sm ${eligibility.result === "ELIGIBLE" ? "bg-[#c8ef16]" : eligibility.result === "NOT_ELIGIBLE" ? "bg-rose-100" : "bg-[#ffd943]"}`} role="status">
-              <strong>{eligibility.result.replaceAll("_", " ")}</strong>
-              {eligibility.reasons?.length > 0 && <ul className="mt-2 list-disc pl-4">{eligibility.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>}
-              {eligibility.missingFields?.length > 0 && <p className="mt-2">Missing: {eligibility.missingFields.join(", ")}</p>}
-              {eligibility.criteriaMessage && <p className="mt-2">{eligibility.criteriaMessage}</p>}
-              <p className="mt-2 text-xs">This is an estimated check, not verified eligibility.</p>
-            </div>
-          )}
-          {eligibility?.questions?.length > 0 && (
-            <form className="mt-4 space-y-3" onSubmit={(event) => {
-              event.preventDefault();
-              setWorking(true);
-              api.post("/scholarships/check-eligibility", { scholarshipId: scholarship.id, answers: eligibilityAnswers })
-                .then(({ data }) => setEligibility(data))
-                .catch((requestError) => setError(requestError.response?.data?.message ?? "Could not check eligibility."))
-                .finally(() => setWorking(false));
-            }}>
-              <p className="text-xs text-[#615a4f]">Only information used by this scholarship’s listed rules is requested.</p>
-              {eligibility.questions.map((question) => (
-                <label className="block text-xs font-bold" key={question.field}>{question.label}
-                  {question.type === "select" ? (
-                    <select className="mt-1 w-full rounded-lg border bg-white px-2 py-2" required value={eligibilityAnswers[question.field] ?? ""} onChange={(event) => setEligibilityAnswers((current) => ({ ...current, [question.field]: event.target.value }))}>
-                      <option value="">Select</option>{question.options.map((option) => <option key={option} value={option}>{option}</option>)}
-                    </select>
-                  ) : (
-                    <input className="mt-1 w-full rounded-lg border bg-white px-2 py-2" required type={question.type} min={question.type === "number" ? "0" : undefined} value={eligibilityAnswers[question.field] ?? ""} onChange={(event) => setEligibilityAnswers((current) => ({ ...current, [question.field]: question.type === "number" ? event.target.value : event.target.value }))} />
-                  )}
-                </label>
-              ))}
-              <button className="w-full rounded-xl border-2 border-[#171717] bg-[#ffd943] px-3 py-2.5 text-sm font-black" disabled={working} type="submit">{working ? "Checking…" : "Check with these details"}</button>
-            </form>
+            <section className={`mt-4 rounded-2xl border-2 p-4 text-sm ${
+              eligibility.result === "ELIGIBLE"
+                ? "border-emerald-700 bg-emerald-50"
+                : eligibility.result === "NOT_ELIGIBLE"
+                  ? "border-rose-700 bg-rose-50"
+                  : "border-amber-600 bg-amber-50"
+            }`} role="status">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-lg font-black">
+                  {eligibility.result === "ELIGIBLE"
+                    ? "Congratulations! You are eligible for this scholarship."
+                    : eligibility.result === "NOT_ELIGIBLE"
+                      ? "You are currently not eligible for this scholarship."
+                      : "Verification Required"}
+                </h3>
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-black">
+                  {eligibility.result.replaceAll("_", " ")}
+                </span>
+              </div>
+              <p className="mt-1 font-bold">{scholarship.title}</p>
+              {eligibility.criteriaAvailable === false && (
+                <p className="mt-3">{eligibility.criteriaMessage}</p>
+              )}
+              {eligibility.reasons?.length > 0 && (
+                <div className="mt-3">
+                  <p className="font-black">Why this result</p>
+                  <ul className="mt-1 list-disc space-y-1 pl-5">
+                    {eligibility.reasons.map((reason) => <li key={reason}>{reason}</li>)}
+                  </ul>
+                </div>
+              )}
+              {eligibility.verificationRequired?.length > 0 && (
+                <div className="mt-3">
+                  <p className="font-black">Needs official verification</p>
+                  <ul className="mt-1 list-disc space-y-1 pl-5">
+                    {eligibility.verificationRequired.map((reason) => <li key={reason}>{reason}</li>)}
+                  </ul>
+                </div>
+              )}
+              {eligibility.criteria?.length > 0 && (
+                <div className="mt-4">
+                  <p className="font-black">Eligibility conditions</p>
+                  <ul className="mt-2 space-y-2">
+                    {eligibility.criteria.map((criterion, index) => (
+                      <li className="flex gap-2" key={`${criterion.field}-${index}`}>
+                        <span className="font-black" aria-hidden="true">
+                          {criterion.status === "MET" ? "✓" : criterion.status === "NOT_MET" ? "✕" : "!"}
+                        </span>
+                        <span>
+                          <strong>{criterion.status.replaceAll("_", " ")}:</strong> {criterion.requirement}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <div className="mt-4 rounded-xl bg-white/80 p-3">
+                <p className="font-black">Estimated scholarship benefit</p>
+                <p className="mt-1">{typeof scholarship.amount === "number"
+                  ? `₹${scholarship.amount.toLocaleString("en-IN")}`
+                  : scholarship.amount?.display || scholarship.benefits?.join(" · ") || "Refer to the official notification."}</p>
+              </div>
+              {eligibility.evaluatedAt && (
+                <p className="mt-3 text-xs">Checked {new Date(eligibility.evaluatedAt).toLocaleString("en-IN")}. This is an estimate, not an official award decision.</p>
+              )}
+            </section>
           )}
           {error && <p className="mt-3 text-sm text-rose-700" role="alert">{error}</p>}
-          {eligibility?.result === "ELIGIBLE" && eligibility.criteriaAvailable && !canContinueToApply && (
+          {eligibility?.result === "ELIGIBLE" && !canContinueToApply && (
             <p className="mt-3 text-xs text-[#615a4f]">
               {scholarship.open
                 ? "You may meet the listed criteria, but an official application link is not available here."
@@ -164,7 +216,7 @@ export default function ScholarshipDetailsPage({ slug }) {
             </p>
           )}
           {canContinueToApply ? (
-            <button className="mt-4 w-full rounded-xl border-2 border-[#171717] bg-[#c8ef16] px-4 py-3 font-black" disabled={working} onClick={continueToApply} type="button">{working ? "Validating…" : "Continue to Apply"}</button>
+            <button className="mt-4 w-full rounded-xl border-2 border-[#171717] bg-[#c8ef16] px-4 py-3 font-black" disabled={working} onClick={continueToApply} type="button">{working ? "Opening…" : "Visit Official Application Website"}</button>
           ) : (
             <button className="mt-4 w-full rounded-xl border-2 border-[#171717] bg-[#ffd943] px-4 py-3 font-black" disabled={authLoading || working} onClick={checkEligibility} type="button">{working ? "Checking…" : user ? eligibility ? "Check Again" : "Check Eligibility" : "Sign in to Check Eligibility"}</button>
           )}

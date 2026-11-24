@@ -32,6 +32,7 @@ const modelNames = [
   "User",
   "Scholarship",
   "ScholarshipProfile",
+  "ScholarshipEligibilityResult",
   "ScholarshipApplication",
   "SavedScholarship",
   "ScholarshipSource",

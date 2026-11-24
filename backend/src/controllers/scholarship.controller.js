@@ -4,6 +4,7 @@ import ScholarshipApplication from "../models/ScholarshipApplication.js";
 import {
   checkEligibility,
   getProfile,
+  getEligibilityProfileRequirements,
   getScholarshipBySlug,
   listPublishedScholarships,
   listSaved,
@@ -54,6 +55,13 @@ export async function getScholarship(request, response) {
 export async function getScholarshipProfile(request, response) {
   const profile = await getProfile(request.user._id);
   response.json({ status: "success", profile });
+}
+
+export async function getScholarshipEligibilityProfile(request, response) {
+  const scholarshipId = String(request.params.scholarshipId ?? "");
+  if (!mongoose.isValidObjectId(scholarshipId)) throw badRequest("Scholarship ID is invalid.");
+  const result = await getEligibilityProfileRequirements(request.user._id, scholarshipId);
+  response.json({ status: "success", ...result });
 }
 
 export async function postScholarshipProfile(request, response) {

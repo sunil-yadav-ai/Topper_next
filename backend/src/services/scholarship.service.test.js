@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   evaluateEligibility,
+  getOfficialIshanUdayEligibilityRules,
+  getOfficialUgcPgEligibilityRules,
   getEligibilityQuestions,
   isApplicationOpen,
   mergeEligibilityAnswers,
@@ -100,12 +102,98 @@ test("eligibility check asks required UGC details and evaluates the student's an
   assert.equal(evaluateEligibility(failedAnswers, scholarship).result, "NOT_ELIGIBLE");
 });
 
+test("official UGC postgraduate scholarship rules produce an eligibility result", () => {
+  const scholarship = {
+    title: "National Scholarship for Post Graduate Studies",
+    sourceName: "University Grants Commission",
+  };
+  const rules = getOfficialUgcPgEligibilityRules(scholarship);
+  assert.equal(rules.length, 6);
+
+  const missing = evaluateEligibility({}, { eligibilityRules: rules });
+  assert.equal(missing.result, "MORE_INFORMATION_REQUIRED");
+  assert.ok(missing.questions.some((question) => question.field === "nationality"));
+  assert.ok(missing.questions.some((question) => question.field === "firstYearPostgraduate"));
+
+  const eligible = evaluateEligibility({
+    nationality: "Indian",
+    dateOfBirth: "2005-04-15",
+    firstYearPostgraduate: "yes",
+    regularFullTime: "yes",
+    recognizedPgDegree: "yes",
+    postgraduateComponent: "not_applicable",
+  }, { eligibilityRules: rules });
+  assert.equal(eligible.result, "VERIFICATION_REQUIRED");
+  assert.match(eligible.verificationRequired.join(" "), /official verification/i);
+
+  const overAgeLimit = evaluateEligibility({
+    nationality: "Indian",
+    dateOfBirth: "1990-04-15",
+    firstYearPostgraduate: "yes",
+    regularFullTime: "yes",
+    recognizedPgDegree: "yes",
+    postgraduateComponent: "not_applicable",
+  }, { eligibilityRules: rules });
+  assert.equal(overAgeLimit.result, "NOT_ELIGIBLE");
+});
+
+test("Ishan Uday fallback evaluates every supplied eligibility condition and flags unverifiable recognition", () => {
+  const scholarship = {
+    title: "Ishan Uday Special Scholarship Scheme",
+    sourceName: "University Grants Commission",
+  };
+  const rules = getOfficialIshanUdayEligibilityRules(scholarship);
+  assert.equal(rules.length, 6);
+  const missing = evaluateEligibility({}, { eligibilityRules: rules });
+  assert.deepEqual(new Set(missing.missingFields), new Set([
+    "class12Passed",
+    "twelfthSchoolState",
+    "undergraduateFirstYear",
+    "admissionType",
+    "recognizedInstitution",
+    "annualFamilyIncome",
+  ]));
+  assert.equal(missing.questions.length, 6);
+
+  const completeProfile = {
+    class12Passed: true,
+    twelfthSchoolState: "Assam",
+    undergraduateFirstYear: "yes",
+    admissionType: "regular",
+    recognizedInstitution: "yes",
+    annualFamilyIncome: 449999,
+  };
+  const eligiblePendingVerification = evaluateEligibility(
+    completeProfile,
+    { eligibilityRules: rules },
+  );
+  assert.equal(eligiblePendingVerification.result, "VERIFICATION_REQUIRED");
+  assert.equal(eligiblePendingVerification.criteria.length, 6);
+  assert.ok(eligiblePendingVerification.criteria.every((criterion) =>
+    ["MET", "VERIFICATION_REQUIRED"].includes(criterion.status)));
+  assert.match(eligiblePendingVerification.verificationRequired.join(" "), /recognized by UGC/i);
+
+  const incomeAtLimit = evaluateEligibility(
+    { ...completeProfile, annualFamilyIncome: 450000 },
+    { eligibilityRules: rules },
+  );
+  assert.equal(incomeAtLimit.result, "NOT_ELIGIBLE");
+  assert.ok(incomeAtLimit.reasons.some((reason) => /below ₹4\.50 lakh/i.test(reason)));
+
+  const outsideRegion = evaluateEligibility(
+    { ...completeProfile, twelfthSchoolState: "Delhi" },
+    { eligibilityRules: rules },
+  );
+  assert.equal(outsideRegion.result, "NOT_ELIGIBLE");
+  assert.ok(outsideRegion.reasons.some((reason) => /North Eastern Region/i.test(reason)));
+});
+
 test("eligibility is not guessed when verified rules are unavailable", () => {
   const result = evaluateEligibility(
     {},
     { officialSourceUrl: "https://example.gov.in/scheme", eligibilityRules: [] },
   );
-  assert.equal(result.result, "MORE_INFORMATION_REQUIRED");
+  assert.equal(result.result, "VERIFICATION_REQUIRED");
   assert.equal(result.criteriaAvailable, false);
   assert.equal(result.questions.length, 0);
 });
@@ -127,6 +215,23 @@ test("a satisfied OR branch does not request the other branch's missing informat
   assert.equal(result.result, "ELIGIBLE");
   assert.deepEqual(result.missingFields, []);
   assert.deepEqual(result.questions, []);
+
+  const remainingRequiredField = evaluateEligibility(
+    { category: "sc" },
+    {
+      officialSourceUrl: "https://example.gov.in/scheme",
+      eligibilityRules: [{ field: "state", operator: "eq", value: "Assam" }],
+      eligibilityGroups: [{
+        operator: "OR",
+        rules: [
+          { field: "category", operator: "eq", value: "sc" },
+          { field: "gender", operator: "eq", value: "female" },
+        ],
+      }],
+    },
+  );
+  assert.deepEqual(remainingRequiredField.missingFields, ["state"]);
+  assert.deepEqual(remainingRequiredField.questions.map((question) => question.field), ["state"]);
 });
 
 test("a scholarship is not marked open unless its application status is verified", () => {
