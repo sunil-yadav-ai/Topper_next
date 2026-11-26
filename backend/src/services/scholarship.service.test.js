@@ -123,7 +123,7 @@ test("official UGC postgraduate scholarship rules produce an eligibility result"
     recognizedPgDegree: "yes",
     postgraduateComponent: "not_applicable",
   }, { eligibilityRules: rules });
-  assert.equal(eligible.result, "VERIFICATION_REQUIRED");
+  assert.equal(eligible.result, "ELIGIBLE");
   assert.match(eligible.verificationRequired.join(" "), /official verification/i);
 
   const overAgeLimit = evaluateEligibility({
@@ -167,7 +167,7 @@ test("Ishan Uday fallback evaluates every supplied eligibility condition and fla
     completeProfile,
     { eligibilityRules: rules },
   );
-  assert.equal(eligiblePendingVerification.result, "VERIFICATION_REQUIRED");
+  assert.equal(eligiblePendingVerification.result, "ELIGIBLE");
   assert.equal(eligiblePendingVerification.criteria.length, 6);
   assert.ok(eligiblePendingVerification.criteria.every((criterion) =>
     ["MET", "VERIFICATION_REQUIRED"].includes(criterion.status)));

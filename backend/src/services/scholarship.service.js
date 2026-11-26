@@ -589,6 +589,7 @@ export function evaluateEligibility(profile, scholarship) {
   const missing = [];
   const reasons = [];
   const verificationRequired = [];
+  let verificationBlocksResult = false;
   const criteria = [];
   const addCriterion = (rule, evaluated) => {
     const status = {
@@ -610,7 +611,10 @@ export function evaluateEligibility(profile, scholarship) {
     addCriterion(rule, evaluated);
     if (evaluated.status === "missing") missing.push(profileFieldForEligibility(evaluated.field));
     if (evaluated.status === "failed") reasons.push(evaluated.reason);
-    if (evaluated.status === "verification-required") verificationRequired.push(evaluated.reason);
+    if (evaluated.status === "verification-required") {
+      verificationRequired.push(evaluated.reason);
+      if (!rule.verificationRequired) verificationBlocksResult = true;
+    }
   }
 
   const hasAnnualIncomeRule = scholarshipRules(scholarship)
@@ -626,6 +630,7 @@ export function evaluateEligibility(profile, scholarship) {
       });
     } else if (!Number.isFinite(Number(profile.annualFamilyIncome))) {
       verificationRequired.push("Annual family income could not be verified.");
+      verificationBlocksResult = true;
     } else if (Number(profile.annualFamilyIncome) > Number(scholarship.incomeLimit)) {
       reasons.push(`Your annual family income exceeds the maximum income limit of ₹${Number(scholarship.incomeLimit).toLocaleString("en-IN")}.`);
       criteria.push({
@@ -675,6 +680,10 @@ export function evaluateEligibility(profile, scholarship) {
           requirement: group.reason || "At least one eligibility option must be met.",
           status: "VERIFICATION_REQUIRED",
         });
+        verificationGroup.forEach((item) => {
+          const matchingRule = group.rules.find((rule) => rule.field === item.field);
+          if (!matchingRule?.verificationRequired) verificationBlocksResult = true;
+        });
       } else {
         reasons.push(group.reason || failedGroup.map((item) => item.reason).join(" or "));
         criteria.push({
@@ -690,9 +699,16 @@ export function evaluateEligibility(profile, scholarship) {
       }
       if (missingGroup.length) missing.push(...missingGroup.map((item) => profileFieldForEligibility(item.field)));
       if (failedGroup.length) reasons.push(...failedGroup.map((item) => item.reason));
-      if (verificationGroup.length) verificationRequired.push(...verificationGroup.map((item) => item.reason));
+      if (verificationGroup.length) {
+        verificationRequired.push(...verificationGroup.map((item) => item.reason));
+        verificationGroup.forEach((item) => {
+          const matchingRule = group.rules.find((rule) => rule.field === item.field);
+          if (!matchingRule?.verificationRequired) verificationBlocksResult = true;
+        });
+      }
     } else {
       verificationRequired.push("An eligibility condition group uses an unsupported combination rule.");
+      verificationBlocksResult = true;
       criteria.push({
         field: "eligibility-group",
         label: "Eligibility condition group",
@@ -708,7 +724,7 @@ export function evaluateEligibility(profile, scholarship) {
   let result = "ELIGIBLE";
   if (uniqueMissing.length) result = "MORE_INFORMATION_REQUIRED";
   else if (uniqueReasons.length) result = "NOT_ELIGIBLE";
-  else if (uniqueVerificationRequired.length) result = "VERIFICATION_REQUIRED";
+  else if (uniqueVerificationRequired.length && verificationBlocksResult) result = "VERIFICATION_REQUIRED";
   return {
     result,
     reasons: uniqueReasons,
